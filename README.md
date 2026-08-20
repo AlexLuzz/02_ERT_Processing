@@ -1,2 +1,2 @@
-# 02_PhD_TLERT_processing
-Repository for TL-ERT data processing
+# 02_ERT_Processing
+Repository for TL-ERT data processing 
