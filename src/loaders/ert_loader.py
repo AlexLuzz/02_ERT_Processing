@@ -2,11 +2,15 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 
-class GeophysicsLoader:
+class ERTLoader:
     """Unified data loader for ERT instruments, sensors, and geometries."""
     
-    # Standard columns expected by downstream processing and PyGIMLi
-    ERT_COLS = ['a', 'b', 'm', 'n', 'r', 'v', 'i', 'err', 'datetime']
+    # Standard columns
+    ERT_COLS = ['A', 'B', 'M', 'N', 
+                'R (Ohm)', 'V (mV)', 'I (mA)', 'k (m)', 'rhoa (Ohm.m)',
+                'err_stk (%)', 'err_rec (%)',
+                'date_survey', 'date_meas' # Format datatime ALWAYS
+                ]
 
     def _standardize_ert(self, df: pd.DataFrame, col_map: dict) -> pd.DataFrame:
         """Internal method to unify ERT column names and structure."""
@@ -67,20 +71,6 @@ class GeophysicsLoader:
             'R': 'r', 'V': 'v', 'I': 'i', 'Err': 'err'
         }
         return self._standardize_ert(df, col_map)
-
-    def load_sensors(self, filepath: Path) -> pd.DataFrame:
-        """Loads environmental sensor data (TDR, LTC)."""
-        # Read Excel or CSV based on suffix
-        if filepath.suffix in ['.xls', '.xlsx']:
-            df = pd.read_excel(filepath)
-        else:
-            df = pd.read_csv(filepath)
-            
-        # Example logic: ensure a standard datetime index for sensor alignment
-        if 'timestamp' in df.columns:
-            df = df.rename(columns={'timestamp': 'datetime'})
-        df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
-        return df.set_index('datetime')
 
     def load_electrode_geometry(self, filepath: Path) -> pd.DataFrame:
         """Loads physical X, Y, Z coordinates for electrodes."""

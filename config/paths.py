@@ -12,7 +12,7 @@ class ProjectPaths:
         if base_env:
             self.base_dir = Path(base_env)
         else:
-            self.base_dir = Path.home() / 'OneDrive - ETS' / '02 - Alexis Luzy' / '01_Modelization'
+            self.base_dir = Path.home() / 'OneDrive - ETS' / '02 - Alexis Luzy' / '02_ERT_Processing'
 
         self.DATA_DIR = self.base_dir / 'DATA'
         self.OUTPUT_DIR = self.base_dir / 'PROJECTS' / project_name if project_name else self.base_dir / 'OUTPUT'

@@ -1,30 +1,23 @@
 # scripts/quick_inv.py
 from config.paths import ProjectPaths
-from src.data import DataManager
-from src.processing import ERTDataFilter
-from src.mesh import MeshBuilder
-from src.inversion import InversionRunner
-from src.visualization import ERTInversionReport
+from src.loaders.ert_loader import ERTLoader
+from src.processing import spatial_filters, temporal_filters
+from src.inversion.pygimli_formatter import build_ert_container
 
 if __name__ == "__main__":
-    paths = ProjectPaths(user='AQ96560', project_name="july_2026_test")
+    paths = ProjectPaths(project_name="Laval_IV_Monitoring")
+    loader = ERTLoader()
+    raw_ohmpi = loader.load_ohmpi(paths.DATA_DIR / "measurements_20260819.csv")
 
-    # 1. Load & Process Raw Data
-    raw_df = DataManager(paths).load()
-    filter_cfg = {'voltage_threshold': 1.0, 'error_threshold': 100.0}
-    clean_df = ERTDataFilter(filter_cfg).apply(raw_df)
+    # 2. Process (Functional, clean, easy to read)
+    df_clean = spatial_filters.filter_by_voltage(raw_ohmpi, min_voltage_mv=0.5)
+    df_clean = spatial_filters.remove_dead_electrodes(df_clean, bad_electrodes=[18, 34, 41])
+    df_clean = temporal_filters.filter_discontinued_quadripoles(df_clean, min_surveys=5)
 
-    # 2. Save Pre-Processed Data (Persistence & Traceability)
-    processed_file = paths.OUTPUT_DIR / "preprocessed_data.parquet"
-    clean_df.to_parquet(processed_file)
-
-    # 3. Load or Build Mesh
-    mesh = MeshBuilder.create_structured_grid(x_range=(-2, 10), z_range=(-3, 0), cell_size=0.1)
-
-    # 4. Invert
-    inv_runner = InversionRunner(mesh=mesh, lam=20, z_weight=0.75)
-    results = inv_runner.run(clean_df)
-    results.save(paths.OUTPUT_DIR / "inversion_results")
-
-    # 5. Generate Report (Decoupled!)
-    ERTInversionReport.print(results, filename=paths.OUTPUT_DIR / "report.pdf")
+    # 3. Save to Project with YAML
+    loader.save_project_dataset(
+        df=df_clean, 
+        project_data_dir=paths.OUTPUT_DIR, # Using ProjectPaths OUTPUT_DIR which points to DATA for projects
+        location="Laval_IV", 
+        hardware="OhmPi"
+    )

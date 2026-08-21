@@ -17,12 +17,13 @@ The codebase follows a strict separation of concerns to remain scalable and test
 We recommend using `conda` or `mamba` to manage dependencies, as geophysical libraries rely heavily on C++ binaries.
 
 ```bash
-# Create a new environment
+# Create a new environment and install the libraries
 conda create -n ert_env python=3.10
 conda activate ert_env
+conda install -c conda-forge pandas numpy scipy matplotlib
 
-# Install needed libraries
-conda install -c conda-forge pygimli pandas numpy scipy matplotlib gmsh gempy
+# In case of a bug (pygimli not avaiable as a conda package for example)
+pip install pygimli gmsh
  
 # To avoid import errors, make su
 my_project/
