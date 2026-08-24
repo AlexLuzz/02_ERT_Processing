@@ -37,6 +37,11 @@ class ProjectPaths:
         self.RAW_OHMPI = onedrive_root / 'Géophysique appliquée - GTO365 - 03 - Ohmpi - IV à Laval'
         self.RAW_PRIME = onedrive_root / 'Géophysique appliquée - GTO365 - TL-ERT 2026E onward'
 
+        self.BB_ELECS_POS = self.DATA_DIR / 'ELECS_POS' / 'BB_ELECS_POS.csv'
+        self.MCM_MONO2M_ELECS_POS = self.DATA_DIR / 'ELECS_POS' / 'MCM_MONO2M_ELECS_POS.csv'
+        self.MCM_MONO1M_ELECS_POS = self.DATA_DIR / 'ELECS_POS' / 'MCM_MONO1M_ELECS_POS.csv'
+        self.MCM_GEO_ELECS_POS = self.DATA_DIR / 'ELECS_POS' / 'MCM_GEO_ELECS_POS.csv'
+
         # If a project name is provided, route outputs to that specific project folder
         if self.project_name:
             self.PROJECT_ROOT = self.PROJECTS_DIR / self.project_name

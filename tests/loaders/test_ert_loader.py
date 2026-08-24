@@ -1,8 +1,7 @@
-from pathlib import Path
 from src.loaders.ert_loader import ERTLoader
-from config.paths import ProjectPaths  # Import your central map!
+from config.paths import ProjectPaths
 
-def test_loading(source: str, file_path: Path, load_function):
+def test_loading(source: str, file_path, load_function):
     """Test loading a single file using a specific loader function."""
     df = load_function(source, file_path)
     print(f"Shape: {df.shape}")
@@ -13,7 +12,7 @@ if __name__ == "__main__":
     loader = ERTLoader()
     
     # Swap to 'alexi' if you are on your home computer
-    paths = ProjectPaths(user='alexi') 
+    paths = ProjectPaths(user='AQ96560') 
         
     # 2. Construct absolute paths by combining the directory from ProjectPaths with the filename
     sas_file = paths.RAW_SAS4000 / "26_BB_2303_2703_6h.AMP"

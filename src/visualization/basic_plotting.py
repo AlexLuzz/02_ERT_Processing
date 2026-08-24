@@ -5,130 +5,116 @@ from typing import Callable, List, Tuple, Dict
 import matplotlib.dates as mdates
 from matplotlib.tri import Triangulation
 
-def plot_timeseries(ax, df, cols=None, source_mgr=None, y_label=None, labels=None):
-    # 1. Handle Time Axis (use datetime if available, otherwise hours)
-    if isinstance(df.index, pd.MultiIndex):
-        x_axis = df.index.get_level_values('datetime')
-        is_date = True
-    else:
-        x_axis = df.index / 3600.0  # Convert seconds to hours
-        is_date = False
-
-    # 2. Plot selected columns
-    target_cols = cols if cols else df.columns
-    for i, col in enumerate(target_cols):
-        if col in df.columns:
-            ax.plot(x_axis, df[col], lw=2, label=labels[i] if labels else col)
-
-    # 3. Overlay Rain
-    if source_mgr is not None:
-        ax_rain = ax.twinx()
-        _plot_rain_bars(ax_rain, source_mgr, is_date)
-        ax_rain.set_ylabel("Rain (mm/hr)")
-
-    # Formatting
-    if is_date:
-        _format_time_axis(ax)
-    else:
-        ax.set_xlabel("Time (hours)")
-
-    ax.set_ylabel(y_label if y_label else "Value")
-    ax.grid(True, alpha=0.3)
-    ax.legend(loc="upper left")
-
-def _plot_rain_bars(ax, source_mgr, use_datetime):
-    df_rain = source_mgr.data
-    rain_val = df_rain['rain']if 'rain' in df_rain.columns else df_rain.iloc[:, 0]
-    
-    if use_datetime:
-        x = [source_mgr.config.start_datetime + pd.Timedelta(seconds=s) for s in df_rain.index]
-        width = source_mgr.config.dt / 86400.0 # width in days
-    else:
-        x = df_rain.index / 3600.0
-        width = source_mgr.config.dt / 3600.0
-
-    ax.bar(x, rain_val, width=width, align='edge', alpha=0.2, color='blue', label='Rain')
-
-def _format_time_axis(ax, ):
+def format_time_axis(ax, ):
     loc = mdates.AutoDateLocator()
     ax.xaxis.set_major_locator(loc)
     ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(loc))
+    
+def plot_electrodes(df, colors=None, projection="xz", ax=None):
+    if ax is None:
+        fig, ax = plt.subplots()
 
-def plot_snapshot(ax, data, cfg, mesh=None, vmin=None, vmax=None,
-                  scale="linear"):
+    colors = colors or {}
 
-    if hasattr(data, "function_space"):
-        mesh = data.function_space().mesh()
-        values = data.dat.data
+    if projection.lower() == "xz":
+        x_col, y_col = "X", "Z"
+    elif projection.lower() == "xy":
+        x_col, y_col = "X", "Y"
     else:
-        values = data
-        if mesh is None:
-            raise ValueError("mesh required for numpy data")
+        raise ValueError("projection must be 'xz' or 'xy'")
 
-    coords = mesh.coordinates.dat.data
-    triang = Triangulation(coords[:, 0], coords[:, 1])
+    electrode_colors = ["black"] * len(df)
 
-    norm = None
-    if scale == "log":
-        from matplotlib.colors import LogNorm
-        norm = LogNorm(vmin=vmin, vmax=vmax)
+    for color, electrodes in colors.items():
+        mask = df["elec_number"].isin(electrodes)
+        for pos, is_match in enumerate(mask):
+            if is_match:
+                electrode_colors[pos] = color
 
-    cf = ax.tricontourf(
-        triang,
-        values,
-        levels=cfg.contour_levels,
-        cmap=cfg.colormap,
-        vmin=vmin,
-        vmax=vmax,
-        norm=norm,
-        extend='both'
+    ax.scatter(
+        df[x_col],
+        df[y_col],
+        c=electrode_colors,
+        s=40,
+        zorder=2
     )
 
-    ax.set_aspect("equal")
-    ax.set(xlabel="x (m)", ylabel="y (m)")
+    # Electrode numbers
+    for _, row in df.iterrows():
+        ax.annotate(
+            str(row["elec_number"]),
+            (row[x_col], row[y_col]),
+            xytext=(5, 5),
+            textcoords="offset points",
+            fontsize=8
+        )
 
-    return cf
+    ax.set_xlabel(x_col)
+    ax.set_ylabel(y_col)
+    ax.set_aspect("equal", adjustable="box")
+    ax.grid(True, alpha=0.3)
 
-def plot_snapshot_grid(ax, df_snapshots, field_name, cfg, rows=6, cols=1):
-    fig = ax.figure
-    ax.remove()
-    gs = fig.add_gridspec(rows, cols, hspace=0.2, wspace=0.1)
-    
-    # We use only the first N snapshots that fit in the grid
-    times = df_snapshots.index[:rows*cols]
-    axes = []
-    
-    # Determine global Vmin/Vmax for consistent scaling
-    all_vals = []
-    for t in times:
-        func = df_snapshots.at[t, field_name]
-        all_vals.append(func.dat.data_ro)
-    vmin = np.min(all_vals)
-    vmax = np.max(all_vals)
+    return ax
 
-    cf = None
-    for i, t in enumerate(times):
-        r, c = divmod(i, cols)
-        ax_sub = fig.add_subplot(gs[r, c])
-        func = df_snapshots.at[t, field_name]
-        
-        cf = plot_snapshot(ax_sub, func, cfg, vmin=vmin, vmax=vmax)
-        
-        # Title with hour formatting
-        ax_sub.set_title(f"t = {t/3600:.1f}h", fontsize=9)
-        
-        # Clean labels for inner grid
-        if r != rows - 1: ax_sub.set_xlabel(""); ax_sub.set_xticklabels([])
-        if c != 0: ax_sub.set_ylabel(""); ax_sub.set_yticklabels([])
-        axes.append(ax_sub)
+def fetch_snow_data(start_date, end_date, include_temp=False):
+    """
+    Fetches daily snow depth data from Meteostat.
 
-    fig.colorbar(cf, ax=axes, label=f"{cfg.label} ({cfg.units})", fraction=0.02, pad=0.04)
+    Parameters:
+        start_date (str or datetime): Start date.
+        end_date (str or datetime): End date.
+        include_temp (bool): Whether to include temperature data.
+    Returns:
+        pd.DataFrame: DataFrame containing dates and snow depth.
+    """
+    # Convert start_date and end_date to datetime objects
+    start_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
     
-def add_probe_markers(ax, probe_positions: List[Tuple], colors: List[str] = None):
-    if colors is None:
-        base_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-        colors = [base_colors[i % len(base_colors)] for i in range(len(probe_positions))]
-    
-    for i, (x, y) in enumerate(probe_positions):
-        ax.plot(x, y, '*', color=colors[i % len(colors)],
-                markersize=12, markeredgecolor='black', markeredgewidth=0.8)
+    import requests
+    from io import StringIO
+
+    def get_daily_data(station_id, year):
+        url = (
+            "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
+            f"format=csv&stationID={station_id}&Year={year}&Month=1&Day=1&timeframe=2"
+        )
+        r = requests.get(url)
+        r.raise_for_status()   # Error if station/year invalid
+
+        df = pd.read_csv(StringIO(r.text))
+        return df
+
+    def get_daily_range(station_id, start_year, end_year):
+        frames = []
+        for y in range(start_year, end_year + 1):
+            print(f"Fetching {y}...")
+            frames.append(get_daily_data(station_id, y))
+        return pd.concat(frames, ignore_index=True)
+
+    # Montréal Trudeau – Climate Daily Station
+    station_id = 51157   # NOT the METAR station (71183)
+
+    df = get_daily_range(station_id, 2024, 2026)
+
+    # Convert Date/Time column to datetime for proper filtering
+    df['Date/Time'] = pd.to_datetime(df['Date/Time'])
+
+    # Fill missing values and filter by date range in one step
+    date_mask = (df['Date/Time'] >= start_date) & (df['Date/Time'] <= end_date)
+    filtered_df = df[date_mask]
+
+    # Extract snow and rain data from filtered dataframe
+    snow_data = filtered_df['Total Snow (cm)'].fillna(0)
+    rain_data = filtered_df['Total Rain (mm)'].fillna(0)
+    temp_data = filtered_df['Mean Temp (°C)'].fillna(0) if include_temp else None
+
+    # Create final DataFrames
+    snow_df = pd.DataFrame({'date': filtered_df['Date/Time'], 'snow': snow_data})
+    rain_df = pd.DataFrame({'date': filtered_df['Date/Time'], 'rain': rain_data})
+    temp_df = pd.DataFrame({'date': filtered_df['Date/Time'], 'temp': temp_data}) if include_temp else None
+
+    if include_temp:
+        return rain_df, snow_df, temp_df
+    else:
+        return rain_df, snow_df

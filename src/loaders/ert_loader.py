@@ -37,7 +37,7 @@ class ERTLoader(ProjectBase):
 
     def _finalize_standardization(self, df: pd.DataFrame, site_id: str, hardware_id: str, filepath_stem: str, survey_date) -> pd.DataFrame:
         """
-        Centralized method to add identifiers, hard-cast data types, and apply the whitelist.
+        Centralized method to add identifiers, hard-cast data types, apply the whitelist and log survey statistics 
         """
         # 1. Add Identifiers & Dates
         df['site_id'] = site_id
@@ -61,8 +61,34 @@ class ERTLoader(ProjectBase):
                 # Apply the specific numeric type (float or nullable Int64)
                 df[col] = df[col].astype(dtype)
         
-        # 3. STRICT WHITELIST: Drop everything else automatically
-        return df[list(self.ERT_COLS.keys())]
+        # 3. STRICT WHITELIST
+        df_final = df[list(self.ERT_COLS.keys())].copy()
+        
+        # 4. COMPREHENSIVE LOGGING
+        num_meas = len(df_final)
+        
+        # Safely extract unique electrodes used in this survey
+        elecs = pd.unique(df_final[['A', 'B', 'M', 'N']].values.ravel())
+        elecs = [int(e) for e in elecs if pd.notna(e)]
+        
+        start_date = df_final['date_survey'].min()
+        end_date = df_final['date_survey'].max()
+        
+        # Calculate duration if measurement times exist
+        if not df_final['date_meas'].isna().all():
+            duration = df_final['date_meas'].max() - df_final['date_meas'].min()
+            duration_str = str(duration).split('.')[0] # Removes microseconds for clean printing
+        else:
+            duration_str = "Unknown"
+
+        self.logger.info(f"--- Standardized: {site_id}_{filepath_stem} ---")
+        self.logger.info(f"  Measurements : {num_meas}")
+        self.logger.info(f"  Electrodes   : {len(elecs)} total (Min: {min(elecs) if elecs else 'N/A'}, Max: {max(elecs) if elecs else 'N/A'})")
+        self.logger.info(f"  Survey Dates : {start_date} to {end_date}")
+        self.logger.info(f"  Duration     : {duration_str}")
+        self.logger.info(f"------------------------------------------------")
+        
+        return df_final
 
     def load_prime(self, site_id: str, source: Path | str | list, pattern: str = "*.tab") -> pd.DataFrame:
         files = self._resolve_files(source, pattern)
@@ -150,3 +176,36 @@ class ERTLoader(ProjectBase):
             dfs.append(df)
             
         return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+
+    def load_geometry(self, filepath: Path, absolute_pos: bool = False, inverse_order: bool = False) -> pd.DataFrame:
+        """
+        Loads electrode geometry files.
+        Header expected: elec_number, X, Y, Z
+        """
+        self.logger.info(f"Loading geometry file: {filepath.name}")
+        
+        # We use decimal=',' to correctly parse '-0,2' as a float#
+        # sep=None with engine='python' allows it to guess if it's separated by commas or semicolons
+        df = pd.read_csv(filepath, sep=None, engine='python')
+        df.columns = df.columns.str.strip()
+        
+        # Ensure correct numeric types
+        for col in ['X', 'Y', 'Z']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+                
+        if inverse_order:
+            # Reverses the coordinates but keeps the elec_num in place
+            # E.g., Electrode 1 gets the coordinates of the very last electrode
+            coords = df[['X', 'Y', 'Z']].iloc[::-1].reset_index(drop=True)
+            df[['X', 'Y', 'Z']] = coords
+            self.logger.info(" -> Applied inverse order to coordinates.")
+            
+        if absolute_pos:
+            # Shifts the entire array so the first electrode sits perfectly at 0, 0, 0
+            df['X'] = df['X'] - df['X'].iloc[0]
+            df['Y'] = df['Y'] - df['Y'].iloc[0]
+            df['Z'] = df['Z'] - df['Z'].iloc[0]
+            self.logger.info(" -> Converted to absolute positions (Electrode 1 = Origin, X=0, Y=0, Z=0).")
+            
+        return df
