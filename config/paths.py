@@ -1,21 +1,48 @@
-import os
+import sys
 from pathlib import Path
 
 class ProjectPaths:
-    """Centralized path management."""
-    def __init__(self, user='AQ96560', project_name=None):
-        self.USER = user
-        self.project_name = project_name
-        
-        # Flexibly handle WSL vs Windows vs Linux home directories
-        base_env = os.getenv('ERT_PROJECT_BASE')
-        if base_env:
-            self.base_dir = Path(base_env)
-        else:
-            self.base_dir = Path.home() / 'OneDrive - ETS' / '02 - Alexis Luzy' / '02_ERT_Processing'
+    """Centralized, READ-ONLY path management for raw ERT data."""
 
+    def __init__(self, user: str = 'AQ96560', project_name: str | None = None):
+        self.user = user
+        self.project_name = project_name
+
+        user_home = Path(f"C:/Users/{self.user}")
+
+        # Hardcoded base directory
+        self.base_dir = (
+            user_home
+            / 'OneDrive - ETS'
+            / 'Géophysique appliquée - GTO365 - 02 - Alexis Luzy'
+            / '02_ERT_Processing'
+        )
+
+        # The 4 Main Folders
         self.DATA_DIR = self.base_dir / 'DATA'
-        self.OUTPUT_DIR = self.base_dir / 'PROJECTS' / project_name if project_name else self.base_dir / 'OUTPUT'
+        self.OUTPUT_DIR = self.base_dir / 'OUTPUT'
+        self.VISUALIZATION_DIR = self.base_dir / 'VISUALIZATION'
+        self.PROJECTS_DIR = self.base_dir / 'PROJECTS'
+
+        # Ensure base structure exists
+        for folder in [self.DATA_DIR, self.OUTPUT_DIR, self.VISUALIZATION_DIR, self.PROJECTS_DIR]:
+            folder.mkdir(parents=True, exist_ok=True)
+
+        # ---------------------------------------------------------
+        # HARDCODED RAW DATA SOURCES (READ-ONLY)
+        # ---------------------------------------------------------
+        onedrive_root = user_home / 'OneDrive - ETS'
         
-        self.DATA_DIR.mkdir(parents=True, exist_ok=True)
-        self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        self.RAW_SAS4000 = onedrive_root / 'Géophysique appliquée - GTO365 - Berlier-Bergman Time-Lapse'
+        self.RAW_OHMPI = onedrive_root / 'Géophysique appliquée - GTO365 - 03 - Ohmpi - IV à Laval'
+        self.RAW_PRIME = onedrive_root / 'Géophysique appliquée - GTO365 - TL-ERT 2026E onward'
+
+        # If a project name is provided, route outputs to that specific project folder
+        if self.project_name:
+            self.PROJECT_ROOT = self.PROJECTS_DIR / self.project_name
+            self.PROJECT_ROOT.mkdir(parents=True, exist_ok=True)
+        else:
+            self.PROJECT_ROOT = None
+
+    def __repr__(self) -> str:
+        return f"ProjectPaths(user='{self.user}', project='{self.project_name}')"

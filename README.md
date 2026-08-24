@@ -20,10 +20,10 @@ We recommend using `conda` or `mamba` to manage dependencies, as geophysical lib
 # Create a new environment and install the libraries
 conda create -n ert_env python=3.10
 conda activate ert_env
-conda install -c conda-forge pandas numpy scipy matplotlib
+conda install -c conda-forge pandas numpy scipy matplotlib pyyaml 
 
 # In case of a bug (pygimli not avaiable as a conda package for example)
-pip install pygimli gmsh
+pip install pygimli gmsh pyarrow fastparquet
  
 # To avoid import errors, make su
 my_project/

@@ -1,82 +1,152 @@
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
+import re
+import yaml
+from src.loaders.loading_tools import scan_header
+from src.core.base import ProjectBase
 
-class ERTLoader:
-    """Unified data loader for ERT instruments, sensors, and geometries."""
+class ERTLoader(ProjectBase):
+    """Data loader for ERT instruments"""
+
+    def __init__(self):
+        super().__init__()
     
-    # Standard columns
-    ERT_COLS = ['A', 'B', 'M', 'N', 
-                'R (Ohm)', 'V (mV)', 'I (mA)', 'k (m)', 'rhoa (Ohm.m)',
-                'err_stk (%)', 'err_rec (%)',
-                'date_survey', 'date_meas' # Format datatime ALWAYS
-                ]
+    # Standard columns mapped to their expected pandas data types
+    ERT_COLS = {
+        'A': 'Int64', 'B': 'Int64', 'M': 'Int64', 'N': 'Int64', 
+        'R (Ohm)': float, 'Vmn (mV)': float, 'Iab (mA)': float, 
+        'Tx (V)': float, 'R_ab (kOhm)': float,
+        'k (m)': float, 'rhoa (Ohm.m)': float,
+        'err_stk (%)': float, 'err_rec (%)': float, 
+        'date_survey': 'datetime64[ns]', 'date_meas': 'datetime64[ns]', 
+        'site_id': str, 'hardware_id': str, 'survey_id': str
+    }
 
-    def _standardize_ert(self, df: pd.DataFrame, col_map: dict) -> pd.DataFrame:
-        """Internal method to unify ERT column names and structure."""
-        df = df.rename(columns=col_map)
+    def _resolve_files(self, source: Path | str | list, pattern: str = "*") -> list[Path]:
+        if isinstance(source, list):
+            return [Path(f) for f in source if Path(f).exists()]
         
-        # Ensure all standard columns exist
-        for col in self.ERT_COLS:
+        source_path = Path(source)
+        if source_path.is_file(): return [source_path]
+        if source_path.is_dir(): return list(source_path.glob(pattern))
+        if source_path.parent.is_dir(): return list(source_path.parent.glob(source_path.name))
+        
+        self.logger.error(f"Path does not exist: {source_path}")
+        return []
+
+    def _finalize_standardization(self, df: pd.DataFrame, site_id: str, hardware_id: str, filepath_stem: str, survey_date) -> pd.DataFrame:
+        """
+        Centralized method to add identifiers, hard-cast data types, and apply the whitelist.
+        """
+        # 1. Add Identifiers & Dates
+        df['site_id'] = site_id
+        df['hardware_id'] = hardware_id
+        df['survey_id'] = f"{site_id}_{filepath_stem}"
+        df['date_survey'] = survey_date
+
+        # 2. Ensure standard columns exist and HARD-CAST types
+        for col, dtype in self.ERT_COLS.items():
             if col not in df.columns:
                 df[col] = pd.NA
                 
-        # Keep standardized columns first, append any extras
-        extra_cols = [c for c in df.columns if c not in self.ERT_COLS]
-        return df[self.ERT_COLS + extra_cols]
-
-    def load_sas4000(self, filepath: Path) -> pd.DataFrame:
-        with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
-            lines = f.readlines()
-
-        start_time, data_start = None, 0
-        for i, line in enumerate(lines):
-            if line.startswith('Date & Time:'):
-                time_str = line.split(':', 1)[1].strip()
-                start_time = datetime.strptime(time_str, "%d/%m/%Y %H:%M:%S")
-            elif 'No.' in line and 'A(x)' in line:
-                data_start = i
-                break
-                
-        df = pd.read_csv(filepath, skiprows=data_start, delim_whitespace=True)
+            if dtype == 'datetime64[ns]':
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+            elif dtype == str:
+                # Cast to string, but avoid turning actual NA values into the literal word "nan"
+                df[col] = df[col].astype(str).replace({'nan': pd.NA, '<NA>': pd.NA})
+            else:
+                # Force to numeric (turns instrument glitches/strings into NaN)
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+                # Apply the specific numeric type (float or nullable Int64)
+                df[col] = df[col].astype(dtype)
         
-        col_map = {
-            'A(x)': 'a', 'B(x)': 'b', 'M(x)': 'm', 'N(x)': 'n',
-            'Res.(ohm)': 'r', 'Voltage(V)': 'v', 'I(mA)': 'i', 'Error(%)': 'err'
-        }
-        df = self._standardize_ert(df, col_map)
+        # 3. STRICT WHITELIST: Drop everything else automatically
+        return df[list(self.ERT_COLS.keys())]
+
+    def load_prime(self, site_id: str, source: Path | str | list, pattern: str = "*.tab") -> pd.DataFrame:
+        files = self._resolve_files(source, pattern)
+        dfs = []
         
-        if start_time and 'Time' in df.columns:
-            df['datetime'] = start_time + pd.to_timedelta(df['Time'], unit='s')
+        for filepath in files:
+            self.logger.info(f"Loading Prime file: {filepath.name}")
+            data_start, metadata = scan_header(filepath, data_start_markers=['pt_line_number:', 'pt_calc_res:'])
             
-        df['err'] = pd.to_numeric(df['err'].replace('1.#QNAN0', pd.NA), errors='coerce')
-        df = df[~df['a'].astype(str).isin(['32767', '32767.0'])]
+            start_time_str = metadata.get('set_actual_start_time')
+            survey_date = datetime.strptime(start_time_str, "%Y-%m-%dT%H:%M:%S") if start_time_str else pd.NA
+                    
+            df = pd.read_csv(filepath, skiprows=data_start, sep=r'\s+')
+            df.columns = df.columns.str.strip()
+            
+            if 'pt_meas_applied_voltage:' in df.columns:
+                df['pt_meas_applied_voltage:'] = df['pt_meas_applied_voltage:'] * 1000.0
+                self.logger.info(f" -> Converted Prime Tx(V) to mV for {filepath.name}")
+            
+            df = df.rename(columns={
+                'pt_c1_no:': 'A', 'pt_c2_no:': 'B', 'pt_p1_no:': 'M', 'pt_p2_no:': 'N',
+                'pt_calc_res:': 'R (Ohm)', 'pt_meas_voltage_mean:': 'Vmn (mV)', 'pt_meas_current_mag:': 'Iab (mA)', 
+                'pt_meas_applied_voltage:': 'Tx (V)', 'pt_meas_contact_resistance:': 'R_ab (kOhm)', 
+                'pt_calc_res_error:': 'err_stk (%)', 'pt_time:': 'date_meas'
+            })
+            
+            df = self._finalize_standardization(df, site_id, 'Prime', filepath.stem, survey_date)
+            dfs.append(df)
+            
+        return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+
+    def load_sas4000(self, site_id: str, source: Path | str | list, pattern: str = "*.AMP") -> pd.DataFrame:
+        files = self._resolve_files(source, pattern)
+        dfs = []
         
-        return df.reset_index(drop=True)
+        for filepath in files:
+            self.logger.info(f"Loading SAS4000 file: {filepath.name}")
+            data_start, metadata = scan_header(filepath, data_start_markers=['No.', 'A(x)'])
+            
+            start_time_str = metadata.get('Date & Time')
+            survey_date = datetime.strptime(start_time_str, "%d/%m/%Y %H:%M:%S") if start_time_str else pd.NA
+                    
+            df = pd.read_csv(filepath, skiprows=data_start, sep=r'\s+')
+            
+            if 'Voltage(V)' in df.columns:
+                df['Voltage(V)'] = df['Voltage(V)'] * 1000.0
+                self.logger.info(f" -> Converted Voltage(V) to mV for {filepath.name}")
+            
+            df = df.rename(columns={
+                'A(x)': 'A', 'B(x)': 'B', 'M(x)': 'M', 'N(x)': 'N',
+                'Res.(ohm)': 'R (Ohm)', 'Voltage(V)': 'Vmn (mV)', 'I(mA)': 'Iab (mA)', 
+                'Error(%)': 'err_stk (%)'
+            })
+            
+            df['err_stk (%)'] = pd.to_numeric(df['err_stk (%)'].replace('1.#QNAN0', pd.NA), errors='coerce')
+            df = df[~df['A'].astype(str).isin(['32767', '32767.0'])]
+            
+            # SAS4000 specific time logic (must happen before finalizer casts types)
+            if 'Time' in df.columns and survey_date is not pd.NA:
+                df['date_meas'] = survey_date + pd.to_timedelta(pd.to_numeric(df['Time'], errors='coerce'), unit='s')
+            
+            df = self._finalize_standardization(df, site_id, 'SAS4000', filepath.stem, survey_date)
+            dfs.append(df)
+            
+        return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
 
-    def load_ohmpi(self, filepath: Path) -> pd.DataFrame:
-        df = pd.read_csv(filepath, sep=',')
-        col_map = {
-            'A': 'a', 'B': 'b', 'M': 'm', 'N': 'n',
-            'R [Ohm]': 'r', 'Vmn [mV]': 'v', 'I [mA]': 'i', 'time': 'datetime'
-        }
-        df = self._standardize_ert(df, col_map)
-        df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
-        return df
+    def load_ohmpi(self, site_id: str, source: Path | str | list, pattern: str = "*.csv") -> pd.DataFrame:
+        files = self._resolve_files(source, pattern)
+        dfs = []
+        
+        for filepath in files:
+            self.logger.info(f"Loading OhmPi file: {filepath.name}")
+            df = pd.read_csv(filepath, sep=',')
+            
+            date_match = re.search(r'\d{8}T\d{6}', filepath.stem)
+            survey_date = datetime.strptime(date_match.group(), "%Y%m%dT%H%M%S") if date_match else pd.NA
 
-    def load_prime(self, filepath: Path) -> pd.DataFrame:
-        df = pd.read_csv(filepath, sep='\t')
-        col_map = {
-            'A': 'a', 'B': 'b', 'M': 'm', 'N': 'n',
-            'R': 'r', 'V': 'v', 'I': 'i', 'Err': 'err'
-        }
-        return self._standardize_ert(df, col_map)
-
-    def load_electrode_geometry(self, filepath: Path) -> pd.DataFrame:
-        """Loads physical X, Y, Z coordinates for electrodes."""
-        df = pd.read_csv(filepath)
-        # Ensure minimum required coordinates exist
-        expected = ['electrode_id', 'x', 'z']
-        if not all(col in df.columns for col in expected):
-            raise ValueError(f"Geometry file must contain columns: {expected}")
-        return df
+            df = df.rename(columns={
+                'R [Ohm]': 'R (Ohm)', 'Vmn [mV]': 'Vmn (mV)', 'I [mA]': 'Iab (mA)',
+                'Tx [V]': 'Tx (V)', 'R_ab [kOhm]': 'R_ab (kOhm)',
+                'time': 'date_meas', 'R_std [%]': 'err_stk (%)', 
+            })
+            
+            df = self._finalize_standardization(df, site_id, 'OhmPi', filepath.stem, survey_date)
+            dfs.append(df)
+            
+        return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
