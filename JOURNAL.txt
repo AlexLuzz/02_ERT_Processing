@@ -1,0 +1,11 @@
+2026-08-25
+
+
+2026-08-24
+- Lost 1h30 at home due to matplotlib silent crash, due to install with conda-forge => use pip only!
+- Visualization :  report logic really advanced a lot, it starts to be good, 
+- doc : 
+
+
+2026-08-23 
+- Worked on data and inversion code

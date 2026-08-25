@@ -14,16 +14,19 @@ The codebase follows a strict separation of concerns to remain scalable and test
 
 ## Installation
 
-We recommend using `conda` or `mamba` to manage dependencies, as geophysical libraries rely heavily on C++ binaries.
-
-```bash
-# Create a new environment and install the libraries
-conda create -n ert_env python=3.10
+```bash # Anaconda Prompt
+# Create and activate the clean environment
+conda create -n ert_env python=3.10 -y
 conda activate ert_env
-python -m pip install --upgrade pip
 
-# In case of a bug (pygimli not avaiable as a conda package for example)
-python -m pip install pandas numpy scipy matplotlib pyyaml pygimli pyyaml gmsh pyarrow fastparquet requests
+# Upgrade pip and install the data/utility packages
+python -m pip install --upgrade pip
+python -m pip install pygimli matplotlib gmsh numpy scipy pandas pyarrow fastparquet requests pyyaml 
+
+# IN CASE OF MATPLOTLIB SECRET CRASH - Separate pygimli venv with the rest
+# To remove and environment
+conda deactivate
+conda remove -n myenv --all
  
 # To avoid import errors, make su
 my_project/

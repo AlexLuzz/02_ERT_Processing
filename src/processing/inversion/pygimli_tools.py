@@ -45,3 +45,15 @@ def build_ert_container(df_survey: pd.DataFrame, geom_df: pd.DataFrame, default_
     data['valid'] = np.ones(data.size(), dtype=bool)
     
     return data
+
+def get_common_configs(df, config_cols=['A', 'B', 'M', 'N'], date_col='SurveyDate'):
+    """Identifies electrode configurations that exist across ALL surveys."""
+    common_configs = None
+    for survey_date in df[date_col].unique():
+        survey_data = df[df[date_col] == survey_date]
+        configs = set(map(tuple, survey_data[config_cols].values))
+        if common_configs is None:
+            common_configs = configs
+        else:
+            common_configs = common_configs.intersection(configs)
+    return common_configs

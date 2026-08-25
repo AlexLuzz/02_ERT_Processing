@@ -1,58 +1,48 @@
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-from typing import Callable, List, Tuple, Dict
 import matplotlib.dates as mdates
-from matplotlib.tri import Triangulation
 
-def format_time_axis(ax, ):
-    loc = mdates.AutoDateLocator()
-    ax.xaxis.set_major_locator(loc)
-    ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(loc))
+def format_time_axis(ax):
+    """Smart date locator with MM-dd format and 45-degree angle."""
+    locator = mdates.AutoDateLocator(minticks=4, maxticks=12)
+    formatter = mdates.DateFormatter('%m-%d')
+    
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(formatter)
+    
+    # Rotate and align labels
+    for label in ax.get_xticklabels():
+        label.set_rotation(45)
+        label.set_horizontalalignment('right')
     
 def plot_electrodes(df, colors=None, projection="xz", ax=None):
     if ax is None:
         fig, ax = plt.subplots()
 
     colors = colors or {}
+    x_col, y_col = ("X", "Z") if projection.lower() == "xz" else ("X", "Y")
 
-    if projection.lower() == "xz":
-        x_col, y_col = "X", "Z"
-    elif projection.lower() == "xy":
-        x_col, y_col = "X", "Y"
-    else:
-        raise ValueError("projection must be 'xz' or 'xy'")
+    # Plot ALL background electrodes in light grey
+    ax.scatter(df[x_col], df[y_col], c='lightgrey', s=10, zorder=1)
 
-    electrode_colors = ["black"] * len(df)
-
+    # Plot active electrodes in their designated legend colors
     for color, electrodes in colors.items():
         mask = df["elec_number"].isin(electrodes)
-        for pos, is_match in enumerate(mask):
-            if is_match:
-                electrode_colors[pos] = color
+        ax.scatter(df.loc[mask, x_col], df.loc[mask, y_col], c=color, s=25, zorder=2)
 
-    ax.scatter(
-        df[x_col],
-        df[y_col],
-        c=electrode_colors,
-        s=40,
-        zorder=2
-    )
-
-    # Electrode numbers
+    # Electrode numbers (every 4th, integers only)
     for _, row in df.iterrows():
-        ax.annotate(
-            str(row["elec_number"]),
-            (row[x_col], row[y_col]),
-            xytext=(5, 5),
-            textcoords="offset points",
-            fontsize=8
-        )
+        elec_num = int(row["elec_number"])
+        if elec_num % 4 == 0:
+            ax.annotate(str(elec_num), (row[x_col], row[y_col]), 
+                        xytext=(0, 3), textcoords="offset points", 
+                        fontsize=6, ha='center', va='bottom')
 
-    ax.set_xlabel(x_col)
-    ax.set_ylabel(y_col)
-    ax.set_aspect("equal", adjustable="box")
-    ax.grid(True, alpha=0.3)
+    # Apply 1m padding and remove self-explanatory axes
+    ax.set_xlim(df[x_col].min() - 1, df[x_col].max() + 1)
+    ax.set_ylim(df[y_col].min() - 1, df[y_col].max() + 2) # +2 for label clearance
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.axis('off') 
 
     return ax
 
@@ -68,9 +58,9 @@ def fetch_snow_data(start_date, end_date, include_temp=False):
         pd.DataFrame: DataFrame containing dates and snow depth.
     """
     # Convert start_date and end_date to datetime objects
-    start_date = pd.to_datetime(start_date)
-    end_date = pd.to_datetime(end_date)
-    
+    start_date = pd.to_datetime(start_date, errors='coerce')
+    end_date = pd.to_datetime(end_date, errors='coerce')
+
     import requests
     from io import StringIO
 
@@ -79,7 +69,7 @@ def fetch_snow_data(start_date, end_date, include_temp=False):
             "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
             f"format=csv&stationID={station_id}&Year={year}&Month=1&Day=1&timeframe=2"
         )
-        r = requests.get(url)
+        r = requests.get(url, timeout=20)
         r.raise_for_status()   # Error if station/year invalid
 
         df = pd.read_csv(StringIO(r.text))
@@ -95,7 +85,11 @@ def fetch_snow_data(start_date, end_date, include_temp=False):
     # Montréal Trudeau – Climate Daily Station
     station_id = 51157   # NOT the METAR station (71183)
 
-    df = get_daily_range(station_id, 2024, 2026)
+    df = get_daily_range(
+        station_id,
+        start_date.year,
+        end_date.year,
+    )
 
     # Convert Date/Time column to datetime for proper filtering
     df['Date/Time'] = pd.to_datetime(df['Date/Time'])

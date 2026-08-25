@@ -2,26 +2,59 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 import re
-import yaml
-from src.loaders.loading_tools import scan_header
+from src.loaders.loading_tools import scan_header, split_sas4000_surveys, compute_geometric_factors
 from src.core.base import ProjectBase
 
 class ERTLoader(ProjectBase):
     """Data loader for ERT instruments"""
 
-    def __init__(self):
+    def __init__(
+        self,
+        site_id: str,
+        elec_pos_path: Path | str | None = None,
+        absolute_pos: bool = True,
+        inverse_order: bool = False,
+    ):
         super().__init__()
-    
+        self.site_id = site_id
+        self.elec_pos = None
+
+        if elec_pos_path is not None:
+            self.elec_pos = self.load_geometry(
+                elec_pos_path, absolute_pos=absolute_pos, inverse_order=inverse_order
+            )
+            self.logger.info(
+                f"Initialized ERTLoader for site: '{self.site_id}' with"
+                f" {len(self.elec_pos)} electrodes loaded."
+            )
+        else:
+            self.logger.info(
+                f"Initialized ERTLoader for site: '{self.site_id}' (No geometry"
+                " bound)."
+            )
+        
     # Standard columns mapped to their expected pandas data types
     ERT_COLS = {
-        'A': 'Int64', 'B': 'Int64', 'M': 'Int64', 'N': 'Int64', 
-        'R (Ohm)': float, 'Vmn (mV)': float, 'Iab (mA)': float, 
-        'Tx (V)': float, 'R_ab (kOhm)': float,
-        'k (m)': float, 'rhoa (Ohm.m)': float,
-        'err_stk (%)': float, 'err_rec (%)': float, 
-        'date_survey': 'datetime64[ns]', 'date_meas': 'datetime64[ns]', 
-        'site_id': str, 'hardware_id': str, 'survey_id': str
+      'A': 'Int64',
+      'B': 'Int64',
+      'M': 'Int64',
+      'N': 'Int64',
+      'R (Ohm)': float,
+      'Vmn (mV)': float,
+      'Iab (mA)': float,
+      'Tx (V)': float,
+      'R_ab (kOhm)': float,
+      'k (m)': float,
+      'rhoa (Ohm.m)': float,
+      'err_stk (%)': float,
+      'err_rec (%)': float,
+      'date_survey': 'datetime64[ns]',
+      'date_meas': 'datetime64[ns]',
+      'site_id': str,
+      'hardware_id': str,
+      'survey_id': str,
     }
+    
 
     def _resolve_files(self, source: Path | str | list, pattern: str = "*") -> list[Path]:
         if isinstance(source, list):
@@ -35,17 +68,35 @@ class ERTLoader(ProjectBase):
         self.logger.error(f"Path does not exist: {source_path}")
         return []
 
-    def _finalize_standardization(self, df: pd.DataFrame, site_id: str, hardware_id: str, filepath_stem: str, survey_date) -> pd.DataFrame:
+    def _finalize_standardization(
+        self, 
+        df: pd.DataFrame, 
+        site_id: str, 
+        hardware_id: str, 
+        filepath_stem: str, 
+        survey_date, 
+        elec_pos: pd.DataFrame = None
+    ) -> pd.DataFrame:
         """
-        Centralized method to add identifiers, hard-cast data types, apply the whitelist and log survey statistics 
+        Centralized method to add identifiers, compute geometric factors & rhoa, 
+        hard-cast types, apply whitelist, and log survey statistics.
         """
-        # 1. Add Identifiers & Dates
+        # Add Identifiers & Dates
         df['site_id'] = site_id
         df['hardware_id'] = hardware_id
         df['survey_id'] = f"{site_id}_{filepath_stem}"
         df['date_survey'] = survey_date
 
-        # 2. Ensure standard columns exist and HARD-CAST types
+        # Geometric factor and apparent resistivity computation
+        if self.elec_pos is not None:
+            df = compute_geometric_factors(df, self.elec_pos)
+            df['rhoa (Ohm.m)'] = df['k (m)'] * df['R (Ohm)']
+            self.logger.info(f" -> Computed k and rhoa using {len(self.elec_pos)} electrode positions.")
+        elif 'k (m)' in df.columns and 'R (Ohm)' in df.columns:
+            df['rhoa (Ohm.m)'] = df['k (m)'] * df['R (Ohm)']
+            self.logger.info(f" -> Computed rhoa using existing k values.")
+
+        # Ensure standard columns exist and HARD-CAST types
         for col, dtype in self.ERT_COLS.items():
             if col not in df.columns:
                 df[col] = pd.NA
@@ -53,41 +104,54 @@ class ERTLoader(ProjectBase):
             if dtype == 'datetime64[ns]':
                 df[col] = pd.to_datetime(df[col], errors='coerce')
             elif dtype == str:
-                # Cast to string, but avoid turning actual NA values into the literal word "nan"
                 df[col] = df[col].astype(str).replace({'nan': pd.NA, '<NA>': pd.NA})
             else:
-                # Force to numeric (turns instrument glitches/strings into NaN)
-                df[col] = pd.to_numeric(df[col], errors='coerce')
-                # Apply the specific numeric type (float or nullable Int64)
-                df[col] = df[col].astype(dtype)
-        
-        # 3. STRICT WHITELIST
+                df[col] = pd.to_numeric(df[col], errors='coerce').astype(dtype)
+
+        # STRICT WHITELIST
         df_final = df[list(self.ERT_COLS.keys())].copy()
-        
-        # 4. COMPREHENSIVE LOGGING
+
+        # STATS EXTRACTION & LOGGING
         num_meas = len(df_final)
         
-        # Safely extract unique electrodes used in this survey
+        # Electrode usage and missing sequence detection
         elecs = pd.unique(df_final[['A', 'B', 'M', 'N']].values.ravel())
-        elecs = [int(e) for e in elecs if pd.notna(e)]
+        elecs = sorted([int(e) for e in elecs if pd.notna(e)])
         
+        if elecs:
+            min_e, max_e = min(elecs), max(elecs)
+            full_expected_set = set(range(min_e, max_e + 1))
+            missing_elecs = sorted(list(full_expected_set - set(elecs)))
+            missing_str = f" | Missing: {missing_elecs}" if missing_elecs else " | No gaps"
+            elec_log = f"{len(elecs)} total (Range: {min_e} to {max_e}{missing_str})"
+        else:
+            elec_log = "0 detected"
+
+        # Dates and duration
         start_date = df_final['date_survey'].min()
         end_date = df_final['date_survey'].max()
-        
-        # Calculate duration if measurement times exist
         if not df_final['date_meas'].isna().all():
             duration = df_final['date_meas'].max() - df_final['date_meas'].min()
-            duration_str = str(duration).split('.')[0] # Removes microseconds for clean printing
+            duration_str = str(duration).split('.')[0]
         else:
-            duration_str = "Unknown"
+            duration_str = "N/A"
+
+        # Apparent resistivity checks
+        rhoa_valid = df_final['rhoa (Ohm.m)'].dropna()
+        if not rhoa_valid.empty:
+            neg_count = (rhoa_valid < 0).sum()
+            rhoa_stats = f"Min: {rhoa_valid.min():.2f}, Max: {rhoa_valid.max():.2f} Ohm.m (Negatives: {neg_count})"
+        else:
+            rhoa_stats = "Not computed"
 
         self.logger.info(f"--- Standardized: {site_id}_{filepath_stem} ---")
         self.logger.info(f"  Measurements : {num_meas}")
-        self.logger.info(f"  Electrodes   : {len(elecs)} total (Min: {min(elecs) if elecs else 'N/A'}, Max: {max(elecs) if elecs else 'N/A'})")
+        self.logger.info(f"  Electrodes   : {elec_log}")
         self.logger.info(f"  Survey Dates : {start_date} to {end_date}")
         self.logger.info(f"  Duration     : {duration_str}")
+        self.logger.info(f"  rhoa stats   : {rhoa_stats}")
         self.logger.info(f"------------------------------------------------")
-        
+
         return df_final
 
     def load_prime(self, site_id: str, source: Path | str | list, pattern: str = "*.tab") -> pd.DataFrame:
@@ -103,10 +167,6 @@ class ERTLoader(ProjectBase):
                     
             df = pd.read_csv(filepath, skiprows=data_start, sep=r'\s+')
             df.columns = df.columns.str.strip()
-            
-            if 'pt_meas_applied_voltage:' in df.columns:
-                df['pt_meas_applied_voltage:'] = df['pt_meas_applied_voltage:'] * 1000.0
-                self.logger.info(f" -> Converted Prime Tx(V) to mV for {filepath.name}")
             
             df = df.rename(columns={
                 'pt_c1_no:': 'A', 'pt_c2_no:': 'B', 'pt_p1_no:': 'M', 'pt_p2_no:': 'N',
@@ -147,9 +207,12 @@ class ERTLoader(ProjectBase):
             df = df[~df['A'].astype(str).isin(['32767', '32767.0'])]
             
             # SAS4000 specific time logic (must happen before finalizer casts types)
-            if 'Time' in df.columns and survey_date is not pd.NA:
-                df['date_meas'] = survey_date + pd.to_timedelta(pd.to_numeric(df['Time'], errors='coerce'), unit='s')
-            
+            df['date_meas'] = survey_date + pd.to_timedelta(pd.to_numeric(df['Time'], errors='coerce'), unit='s')
+
+            # Apply splitting before finalization to update survey_id and date_survey
+            df['survey_id'] = f"{site_id}_{filepath.stem}"
+            df = split_sas4000_surveys(df, time_gap_hours=0.25)
+
             df = self._finalize_standardization(df, site_id, 'SAS4000', filepath.stem, survey_date)
             dfs.append(df)
             
@@ -195,7 +258,7 @@ class ERTLoader(ProjectBase):
                 df[col] = pd.to_numeric(df[col], errors='coerce')
                 
         if inverse_order:
-            # Reverses the coordinates but keeps the elec_num in place
+            # Reverses the coordinates but keeps the elec_number in place
             # E.g., Electrode 1 gets the coordinates of the very last electrode
             coords = df[['X', 'Y', 'Z']].iloc[::-1].reset_index(drop=True)
             df[['X', 'Y', 'Z']] = coords

@@ -1,0 +1,21 @@
+## 🔄 In Progress
+
+    ## High Priority 🔥
+    - [ ] Work on inversion stuff
+    - [ ] Solve bad logic in importing geometry / data (site should be specify in paths ?)
+    - [ ] Improve ProjectPaths folder names
+    - [ ] Create mesh building scripts
+
+    ## Medium Priority ⚡
+    - [ ] When importing elec_pos i should be able to specify projection X/Y, maybe through a dict ?
+    - [ ] raw_data_report : First page is useless
+
+    ## Side-side project that will never see the light
+    - [ ] Make a real pytest based worflow ? need to document
+    - [ ]
+
+    ## ULTRA Low Priority 💡
+    - [ ] Code cleanup
+    - [ ] Documentation ; check obsidian and update
+
+## ✅ Completed
