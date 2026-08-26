@@ -1,11 +1,20 @@
-2026-08-25
+2026-08-26
+- Improved / corrected the weather plotting logic : 
+    - orange / blue depending on temperature
+    - rename fetch_weather_data, station id in param (for MCM), resample option
+    - plotting into a function directly since it'll be used elsewhere
+- Tiny changes in the ReportBase class, deleted margins for "constrained_layout=True" 
+- Solved bad logic in ERTLoader, site_id have to be specified in initiation no in loading functions
 
+- Work on DataPreparator and ErtProcessor
+
+2026-08-25
+- Quick update on the function load_geometry to allow for a projection on X/Y coordinates, need to improve test functions
 
 2026-08-24
 - Lost 1h30 at home due to matplotlib silent crash, due to install with conda-forge => use pip only!
 - Visualization :  report logic really advanced a lot, it starts to be good, 
 - doc : 
-
 
 2026-08-23 
 - Worked on data and inversion code

@@ -4,6 +4,7 @@ from datetime import datetime
 import re
 from src.loaders.loading_tools import scan_header, split_sas4000_surveys, compute_geometric_factors
 from src.core.base import ProjectBase
+import numpy as np
 
 class ERTLoader(ProjectBase):
     """Data loader for ERT instruments"""
@@ -71,7 +72,6 @@ class ERTLoader(ProjectBase):
     def _finalize_standardization(
         self, 
         df: pd.DataFrame, 
-        site_id: str, 
         hardware_id: str, 
         filepath_stem: str, 
         survey_date, 
@@ -82,9 +82,9 @@ class ERTLoader(ProjectBase):
         hard-cast types, apply whitelist, and log survey statistics.
         """
         # Add Identifiers & Dates
-        df['site_id'] = site_id
+        df['site_id'] = self.site_id
         df['hardware_id'] = hardware_id
-        df['survey_id'] = f"{site_id}_{filepath_stem}"
+        df['survey_id'] = f"{self.site_id}_{filepath_stem}"
         df['date_survey'] = survey_date
 
         # Geometric factor and apparent resistivity computation
@@ -144,7 +144,7 @@ class ERTLoader(ProjectBase):
         else:
             rhoa_stats = "Not computed"
 
-        self.logger.info(f"--- Standardized: {site_id}_{filepath_stem} ---")
+        self.logger.info(f"--- Standardized: {self.site_id}_{filepath_stem} ---")
         self.logger.info(f"  Measurements : {num_meas}")
         self.logger.info(f"  Electrodes   : {elec_log}")
         self.logger.info(f"  Survey Dates : {start_date} to {end_date}")
@@ -154,7 +154,7 @@ class ERTLoader(ProjectBase):
 
         return df_final
 
-    def load_prime(self, site_id: str, source: Path | str | list, pattern: str = "*.tab") -> pd.DataFrame:
+    def load_prime(self, source: Path | str | list, pattern: str = "*.tab") -> pd.DataFrame:
         files = self._resolve_files(source, pattern)
         dfs = []
         
@@ -175,12 +175,12 @@ class ERTLoader(ProjectBase):
                 'pt_calc_res_error:': 'err_stk (%)', 'pt_time:': 'date_meas'
             })
             
-            df = self._finalize_standardization(df, site_id, 'Prime', filepath.stem, survey_date)
+            df = self._finalize_standardization(df, 'Prime', filepath.stem, survey_date)
             dfs.append(df)
             
         return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
 
-    def load_sas4000(self, site_id: str, source: Path | str | list, pattern: str = "*.AMP") -> pd.DataFrame:
+    def load_sas4000(self, source: Path | str | list, pattern: str = "*.AMP") -> pd.DataFrame:
         files = self._resolve_files(source, pattern)
         dfs = []
         
@@ -210,15 +210,15 @@ class ERTLoader(ProjectBase):
             df['date_meas'] = survey_date + pd.to_timedelta(pd.to_numeric(df['Time'], errors='coerce'), unit='s')
 
             # Apply splitting before finalization to update survey_id and date_survey
-            df['survey_id'] = f"{site_id}_{filepath.stem}"
+            df['survey_id'] = f"{self.site_id}_{filepath.stem}"
             df = split_sas4000_surveys(df, time_gap_hours=0.25)
 
-            df = self._finalize_standardization(df, site_id, 'SAS4000', filepath.stem, survey_date)
+            df = self._finalize_standardization(df, 'SAS4000', filepath.stem, survey_date)
             dfs.append(df)
             
         return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
 
-    def load_ohmpi(self, site_id: str, source: Path | str | list, pattern: str = "*.csv") -> pd.DataFrame:
+    def load_ohmpi(self, source: Path | str | list, pattern: str = "*.csv") -> pd.DataFrame:
         files = self._resolve_files(source, pattern)
         dfs = []
         
@@ -235,40 +235,50 @@ class ERTLoader(ProjectBase):
                 'time': 'date_meas', 'R_std [%]': 'err_stk (%)', 
             })
             
-            df = self._finalize_standardization(df, site_id, 'OhmPi', filepath.stem, survey_date)
+            df = self._finalize_standardization(df, 'OhmPi', filepath.stem, survey_date)
             dfs.append(df)
             
         return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
 
-    def load_geometry(self, filepath: Path, absolute_pos: bool = False, inverse_order: bool = False) -> pd.DataFrame:
+    def load_geometry(
+        self,
+        filepath: Path,
+        absolute_pos: bool = False,
+        inverse_order: bool = False,
+        params: dict | None = None,
+    ) -> pd.DataFrame:
         """
         Loads electrode geometry files.
         Header expected: elec_number, X, Y, Z
         """
         self.logger.info(f"Loading geometry file: {filepath.name}")
-        
-        # We use decimal=',' to correctly parse '-0,2' as a float#
-        # sep=None with engine='python' allows it to guess if it's separated by commas or semicolons
-        df = pd.read_csv(filepath, sep=None, engine='python')
+
+        params = params or {}
+        projection = params.get("projection", {})
+
+        df = pd.read_csv(filepath, sep=None, engine="python")
         df.columns = df.columns.str.strip()
-        
-        # Ensure correct numeric types
-        for col in ['X', 'Y', 'Z']:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
-                
+
+        for col in ["X", "Y", "Z"]:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
         if inverse_order:
-            # Reverses the coordinates but keeps the elec_number in place
-            # E.g., Electrode 1 gets the coordinates of the very last electrode
-            coords = df[['X', 'Y', 'Z']].iloc[::-1].reset_index(drop=True)
-            df[['X', 'Y', 'Z']] = coords
+            df[["X", "Y", "Z"]] = df[["X", "Y", "Z"]].iloc[::-1].reset_index(drop=True)
             self.logger.info(" -> Applied inverse order to coordinates.")
-            
+
         if absolute_pos:
-            # Shifts the entire array so the first electrode sits perfectly at 0, 0, 0
-            df['X'] = df['X'] - df['X'].iloc[0]
-            df['Y'] = df['Y'] - df['Y'].iloc[0]
-            df['Z'] = df['Z'] - df['Z'].iloc[0]
-            self.logger.info(" -> Converted to absolute positions (Electrode 1 = Origin, X=0, Y=0, Z=0).")
-            
+            df[["X", "Y", "Z"]] -= df[["X", "Y", "Z"]].iloc[0]
+            self.logger.info(" -> Converted to absolute positions (Electrode 1 = Origin).")
+
+        if projection.get("enabled", False):
+            xy = df[["X", "Y"]].to_numpy()
+            center = xy.mean(axis=0)
+            _, _, vh = np.linalg.svd(xy - center)
+            direction = vh[0]
+
+            axis = projection.get("output_axis", "X (m)")
+            df[axis] = (xy - center) @ direction
+
+            self.logger.info(f" -> Projected XY coordinates onto best-fit line as '{axis}'.")
+
         return df

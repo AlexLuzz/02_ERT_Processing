@@ -1,4 +1,5 @@
 from src.loaders.ert_loader import ERTLoader
+from src.processing.data.data_preparator import DataPreparator
 from config.paths import ProjectPaths
 from src.visualization.raw_data_report import RawDataReport
 
@@ -7,7 +8,7 @@ if __name__ == "__main__":
     loader = ERTLoader(site_id="Berlier-Bergman", 
                        elec_pos_path=paths.BB_ELECS_POS)
 
-    dfs = loader.load_sas4000(source= paths.RAW_SAS4000 #/ "26_BB_2303_2703_6h.AMP"
+    dfs = loader.load_sas4000(source=paths.RAW_SAS4000 #/ "26_BB_2303_2703_6h.AMP"
                               )
 
     output_filepath = paths.VISUALIZATION_DIR / "BB_Site" / "raw_data_results_filter.pdf"

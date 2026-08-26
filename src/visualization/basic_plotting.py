@@ -1,6 +1,10 @@
 import matplotlib.pyplot as plt
-import pandas as pd
 import matplotlib.dates as mdates
+from matplotlib.collections import LineCollection
+import pandas as pd
+import numpy as np
+import requests
+from io import StringIO
 
 def format_time_axis(ax):
     """Smart date locator with MM-dd format and 45-degree angle."""
@@ -46,69 +50,105 @@ def plot_electrodes(df, colors=None, projection="xz", ax=None):
 
     return ax
 
-def fetch_snow_data(start_date, end_date, include_temp=False):
+def fetch_weather_data(start_date, end_date, freq='D', station_id=51157):
     """
-    Fetches daily snow depth data from Meteostat.
-
+    Fetches daily weather data from Environment Canada and resamples to desired frequency.
+    
     Parameters:
         start_date (str or datetime): Start date.
         end_date (str or datetime): End date.
-        include_temp (bool): Whether to include temperature data.
+        freq (str): Pandas frequency string (e.g., 'D' for daily, '6h' for 6 hours).
+        station_id (int): Weather station ID.
     Returns:
-        pd.DataFrame: DataFrame containing dates and snow depth.
+        pd.DataFrame: Single DataFrame containing date, snow, rain, and temp.
     """
-    # Convert start_date and end_date to datetime objects
     start_date = pd.to_datetime(start_date, errors='coerce')
     end_date = pd.to_datetime(end_date, errors='coerce')
 
-    import requests
-    from io import StringIO
-
-    def get_daily_data(station_id, year):
+    def get_daily_data(station, year):
         url = (
             "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
-            f"format=csv&stationID={station_id}&Year={year}&Month=1&Day=1&timeframe=2"
+            f"format=csv&stationID={station}&Year={year}&Month=1&Day=1&timeframe=2"
         )
         r = requests.get(url, timeout=20)
-        r.raise_for_status()   # Error if station/year invalid
+        r.raise_for_status()
+        return pd.read_csv(StringIO(r.text))
 
-        df = pd.read_csv(StringIO(r.text))
-        return df
-
-    def get_daily_range(station_id, start_year, end_year):
-        frames = []
-        for y in range(start_year, end_year + 1):
-            print(f"Fetching {y}...")
-            frames.append(get_daily_data(station_id, y))
-        return pd.concat(frames, ignore_index=True)
-
-    # Montréal Trudeau – Climate Daily Station
-    station_id = 51157   # NOT the METAR station (71183)
-
-    df = get_daily_range(
-        station_id,
-        start_date.year,
-        end_date.year,
-    )
-
-    # Convert Date/Time column to datetime for proper filtering
+    # Fetch data across the required years
+    frames = []
+    for y in range(start_date.year, end_date.year + 1):
+        print(f"Fetching {y}...")
+        frames.append(get_daily_data(station_id, y))
+    
+    df = pd.concat(frames, ignore_index=True)
     df['Date/Time'] = pd.to_datetime(df['Date/Time'])
 
-    # Fill missing values and filter by date range in one step
+    # Improved data filtering logic
     date_mask = (df['Date/Time'] >= start_date) & (df['Date/Time'] <= end_date)
-    filtered_df = df[date_mask]
+    filtered_df = df.loc[date_mask].copy()
 
-    # Extract snow and rain data from filtered dataframe
-    snow_data = filtered_df['Total Snow (cm)'].fillna(0)
-    rain_data = filtered_df['Total Rain (mm)'].fillna(0)
-    temp_data = filtered_df['Mean Temp (°C)'].fillna(0) if include_temp else None
+    # Rename columns for standardisation 
+    filtered_df = filtered_df.rename(columns={
+        'Date/Time': 'date',
+        'Total Snow (cm)': 'snow',
+        'Total Rain (mm)': 'rain',
+        'Mean Temp (°C)': 'temp'
+    })
 
-    # Create final DataFrames
-    snow_df = pd.DataFrame({'date': filtered_df['Date/Time'], 'snow': snow_data})
-    rain_df = pd.DataFrame({'date': filtered_df['Date/Time'], 'rain': rain_data})
-    temp_df = pd.DataFrame({'date': filtered_df['Date/Time'], 'temp': temp_data}) if include_temp else None
+    # Keep only target columns, handle NaNs, and set index for resampling
+    final_df = filtered_df[['date', 'snow', 'rain', 'temp']].fillna(0)
+    final_df.set_index('date', inplace=True)
 
-    if include_temp:
-        return rain_df, snow_df, temp_df
+    # Resample to the requested frequency (e.g., '6h', 'D')
+    if freq:
+        final_df = final_df.resample(freq).mean().fillna(0)
+
+    return final_df.reset_index()
+
+def plot_weather_data(weather_df, start_date, end_date, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 4))
+
+    # --- Precipitation (Left Axis) ---
+    ax.bar(weather_df['date'], weather_df['rain'], width=1.0, color='tab:blue', alpha=0.7, label='Rain (mm)')
+    
+    if 'snow' in weather_df.columns and weather_df['snow'].sum() > 0:
+        ax.bar(weather_df['date'], weather_df['snow'], width=1.0, color='tab:grey', alpha=0.7, label='Snow (cm)')
+        ax.set_ylabel('Precipitation (mm/cm)')
     else:
-        return rain_df, snow_df
+        ax.set_ylabel('Precipitation (mm)')
+        
+    ax.legend(loc="upper left")
+    ax.grid(True, ls='--', alpha=0.5)
+
+    # --- Temperature (Right Axis) ---
+    ax_temp = ax.twinx()
+
+    # Convert dates to Matplotlib's numeric date representation
+    # (LineCollection cannot directly handle datetime64 + float arrays)
+    dates = mdates.date2num(weather_df["date"].to_numpy())
+    temps = weather_df["temp"].to_numpy()
+
+    # Build one line segment between each pair of consecutive measurements
+    points = np.column_stack([dates, temps])
+    segments = np.stack([points[:-1], points[1:]], axis=1)
+    
+    # Color each segment according to the temperature at its starting point (<0 is blue, >=0 is orange)
+    colors = np.where(temps[:-1] < 0, "deepskyblue", "orange")
+
+    lc = LineCollection(segments, colors=colors, linewidths=1.5, zorder=3)
+    ax_temp.add_collection(lc)
+    ax_temp.autoscale()
+    ax_temp.axhline(0, color='grey', linestyle='--', linewidth=0.8, zorder=2)
+    ax_temp.set_ylabel("Temperature (°C)")
+
+    # --- Formatting ---
+    ax.set_xlim([pd.to_datetime(start_date), pd.to_datetime(end_date)])
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d'))
+    ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=30)
+    
+    # Ensure the top layer (temperature) has a transparent background
+    ax_temp.patch.set_visible(False)
+
+    return ax, ax_temp

@@ -1,4 +1,5 @@
 from src.loaders.ert_loader import ERTLoader
+from src.processing.data.data_preparator import DataPreparator
 from config.paths import ProjectPaths
 from src.visualization.raw_data_report import RawDataReport
 

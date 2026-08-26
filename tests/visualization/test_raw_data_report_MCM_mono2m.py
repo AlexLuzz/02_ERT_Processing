@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     prime_files = paths.RAW_PRIME #/ "26_BB_2303_2703_6h.AMP"
 
-    dfs = loader.load_prime(site_id="MCM_mono2m", source=prime_files, pattern="7001*.tab")
+    dfs = loader.load_prime(source=prime_files, pattern="7001*.tab")
 
     # Resolve the final filepath entirely outside of the report class
     output_filepath = paths.VISUALIZATION_DIR / "MCM_mono2m" / "raw_data_results.pdf"

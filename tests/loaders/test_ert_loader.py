@@ -5,7 +5,7 @@ from src.loaders.ert_loader import ERTLoader
 def test_loading(site_id: str,file_path: Path, load_function):
     """Test loading a single file using a specific loader method."""
     print(f"\n--- Loading [{site_id}]: {file_path.name} ---")
-    df = load_function(site_id, file_path)
+    df = load_function(file_path)
     print(f"Shape: {df.shape}")
     print(df[['A', 'B', 'M', 'N', 'R (Ohm)', 'k (m)', 'rhoa (Ohm.m)', 'site_id', 'hardware_id']].head())
     return df

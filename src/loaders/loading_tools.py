@@ -42,6 +42,7 @@ def split_sas4000_surveys(df: pd.DataFrame, time_gap_hours: float = 2.0) -> pd.D
     discontinuities. Dynamically updates the 'survey_id' and 'date_survey'.
     """
     if 'date_meas' not in df.columns or df['date_meas'].isna().all():
+        print("Warning: 'date_meas' column is missing or empty. Cannot split surveys.")
         return df
 
     df_work = df.sort_values('date_meas').reset_index(drop=True)

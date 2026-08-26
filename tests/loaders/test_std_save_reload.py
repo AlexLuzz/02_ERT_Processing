@@ -7,7 +7,7 @@ def run_save_reload_tests(paths: ProjectPaths, loader: ERTLoader):
     
     # 1. Load some data
     sas4000_file = paths.RAW_SAS4000 # / "measurements_20260818T060008.csv"
-    df_raw = loader.load_sas4000("BB", sas4000_file)
+    df_raw = loader.load_sas4000(sas4000_file)
     
     # 2. Save it
     target_dir = paths.DATA_DIR / "TEST_SAVE"
