@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-def get_date_range_mask(df, date_col, start_date=None, end_date=None):
+def get_date_range_mask(df, start_date=None, end_date=None, return_df=False, date_col="date_survey"):
     """Returns True for rows where the date is within the specified range."""
     mask = pd.Series(True, index=df.index)
 
@@ -11,7 +11,10 @@ def get_date_range_mask(df, date_col, start_date=None, end_date=None):
     if end_date is not None:
         mask &= df[date_col] <= end_date
 
-    return mask
+    if return_df:
+        return df[mask]
+    else:
+        return mask
 
 def get_threshold_mask(df, col, min_val=-np.inf, max_val=np.inf):
     """Returns True for values strictly within the min/max bounds."""

@@ -1,3 +1,6 @@
+2026-08-27 
+
+
 2026-08-26
 - Improved / corrected the weather plotting logic : 
     - orange / blue depending on temperature
@@ -5,8 +8,8 @@
     - plotting into a function directly since it'll be used elsewhere
 - Tiny changes in the ReportBase class, deleted margins for "constrained_layout=True" 
 - Solved bad logic in ERTLoader, site_id have to be specified in initiation no in loading functions
-
-- Work on DataPreparator and ErtProcessor
+- Worked on mesh making functions with pygimli and gmsh, tests are good !
+- Worked on ERTProcessor - New version from gemini to check
 
 2026-08-25
 - Quick update on the function load_geometry to allow for a projection on X/Y coordinates, need to improve test functions

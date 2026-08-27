@@ -95,3 +95,76 @@ def compute_geometric_factors(df: pd.DataFrame, df_elec: pd.DataFrame) -> pd.Dat
     df_out['k (m)'] = k
     
     return df_out
+
+def load_geometry(filepath: Path, params: dict | None = None) -> pd.DataFrame:
+    """Load and process electrode geometry.
+    Additional params can be passed in a dictionary.
+    Args:
+        filepath: Path to the geometry file.
+        params: Optional geometry processing options, example:
+
+            params = {
+                "absolute_pos": True,
+                "inverse_order": False,
+                "projection": {
+                    "enabled": True,
+                    "output_axis": "X (m)",
+                },
+            }
+
+            - ``absolute_pos`` (bool, default=False): Set Electrode 1 to ``[0, 0, 0]``.
+            - ``inverse_order`` (bool, default=False): Reverse electrode order.
+            - ``projection`` (dict, optional): Best-fit line projection:
+                - ``type`` (str, default="best_fit"): Projection method.
+                  Options are ``"best_fit"`` and ``"distance"``.
+                - ``output_axis`` (str, default="X (m)"): Output column for the projected coordinate.
+    Returns:
+        pd.DataFrame: Electrode geometry.
+    """
+    params = params or {}
+    absolute_pos = params.get("absolute_pos", False)
+    inverse_order = params.get("inverse_order", False)
+    projection = params.get("projection", {})
+
+    df = pd.read_csv(filepath, sep=None, engine="python")
+    df.columns = df.columns.str.strip()
+
+    for col in ["X", "Y", "Z"]:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    if inverse_order:
+        df[["X", "Y", "Z"]] = (
+            df[["X", "Y", "Z"]]
+            .iloc[::-1]
+            .reset_index(drop=True))
+
+    if absolute_pos:
+        df[["X", "Y", "Z"]] -= df[["X", "Y", "Z"]].iloc[0]
+
+    projection_type = projection.get("type")
+
+    if projection_type:
+        axis = projection.get("output_axis", "X (m)")
+
+        if projection_type == "distance":
+            dx = df["X"].diff()
+            dz = df["Y"].diff()
+            spacing = np.sqrt(dx**2 + dz**2)
+
+            df[axis] = spacing.fillna(0).cumsum()
+
+        elif projection_type == "best_fit":
+            xz = df[["X", "Y"]].to_numpy()
+            center = xz.mean(axis=0)
+
+            _, _, vh = np.linalg.svd(xz - center)
+            direction = vh[0]
+
+            df[axis] = (xz - center) @ direction
+
+        else:
+            raise ValueError(
+                f"Unknown projection type: {projection_type!r}. "
+                "Expected 'best_fit' or 'distance'."
+            )
+    return df

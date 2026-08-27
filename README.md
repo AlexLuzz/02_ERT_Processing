@@ -23,6 +23,8 @@ conda activate ert_env
 python -m pip install --upgrade pip
 python -m pip install pygimli matplotlib gmsh numpy scipy pandas pyarrow fastparquet requests pyyaml 
 
+# pip install numpy==1.26.4 # in case of conflict for pygimli
+
 # IN CASE OF MATPLOTLIB SECRET CRASH - Separate pygimli venv with the rest
 # To remove and environment
 conda deactivate

@@ -2,13 +2,12 @@
 
     ## High Priority 🔥
     - [ ] Work on inversion stuff
-    - [ ] Improve ProjectPaths folder names
-    - [ ] Create mesh building scripts
+    - [ ] Identify recip and measurement type for filtering / plotting purpose
 
     ## Medium Priority ⚡
-    - [ ] When importing elec_pos i should be able to specify projection X/Y, maybe through a dict ? 
+    - [ ] Improve plot_electrodes func
     - [ ] raw_data_report : First page is useless
-    - [ ] Identify recip and measurement type for filtering / plotting purpose
+    - [ ] Improve ProjectPaths folder names
 
     ## Side-side project that will never see the light
     - [ ] Make a real pytest based worflow ? need to document
@@ -19,6 +18,8 @@
     - [ ] Documentation ; check obsidian and update
 
 ## ✅ Completed
+    - [x] Create mesh building (pygimli and Gmsh), testing and visualizing scripts 
+    - [x] 2026-08-26 : When importing elec_pos i should be able to specify projection X/Y, maybe through a dict ? 
     - [x] 2026-08-26 : Bring back temperature and rain / snow plotting as it was done in article, 
           improve weather data fetching and plotting overall logic 
     - [x] 2026-08-26 : Solve bad logic in importing data, site_id have to be specified in ERTLoader initiation

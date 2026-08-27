@@ -1,6 +1,7 @@
+from matplotlib.patches import Polygon
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from matplotlib.collections import LineCollection
+from matplotlib.collections import LineCollection, PatchCollection
 import pandas as pd
 import numpy as np
 import requests
@@ -152,3 +153,83 @@ def plot_weather_data(weather_df, start_date, end_date, ax=None):
     ax_temp.patch.set_visible(False)
 
     return ax, ax_temp
+
+def extract_polygons(mesh):
+    """Directly builds Matplotlib polygons from a PyGIMLi mesh."""
+    polygons = []
+    # cell.nodes() returns nodes in CCW order, perfect for Matplotlib
+    for cell in mesh.cells():
+        coords = [[node.x(), node.y()] for node in cell.nodes()]
+        polygons.append(Polygon(coords, closed=True))
+    return polygons
+
+def plot_array_on_mesh(polygons, array=None, ax=None, **kwargs):
+    """Plot an array of values on a collection of polygons.
+    Additional keyword arguments are passed to ``PatchCollection``.
+    Args:
+        polygons: Collection of polygons to plot.
+        array: Defaults to ``None``. Values associated with each polygon. 
+
+    Keyword Args:
+        top_offset: Padding in meters added above the mesh (default: 1.0).
+        cmap: Colormap name, e.g. ``"viridis"`` or ``"Spectral_r"``.
+        norm: Matplotlib normalization object.
+        alpha: Transparency between 0 and 1.
+        edgecolor: Polygon edge color, e.g. ``"black"`` or ``"none"``.
+        facecolor: Polygon face color; usually unnecessary with ``values``.
+        linewidth: Width of polygon edges.
+        linestyle: Style of polygon edges.
+    Returns:
+        ax: Matplotlib axis object.
+        collection: Matplotlib PatchCollection object.
+    """
+    if ax is None:
+        _, ax = plt.subplots(figsize=(10, 5))
+
+    # Pop the offset parameter before kwargs gets passed to the collection
+    top_offset = kwargs.pop('top_offset', 1.0)
+
+    collection_kwargs = {
+        'cmap': 'Spectral_r',
+        'alpha': 0.9,
+        'edgecolor': 'none',
+        **kwargs,
+    }
+
+    collection = PatchCollection(polygons, **collection_kwargs)
+    if array is not None:
+        collection.set_array(np.asarray(array)) 
+
+    ax.add_collection(collection)
+    
+    # Autoscale to fit the mesh perfectly, then add the extracted offset to the top
+    ax.autoscale(axis='both', tight=True)
+    ymin, ymax = ax.get_ylim()
+    ax.set_ylim(top=ymax + top_offset)
+    
+    ax.set_aspect('equal')
+    ax.set_xlabel('X (m)')
+    ax.set_ylabel('Z (m)')
+    
+    return ax, collection
+
+def plot_electrodes(df, ax, **params):
+    """Plot electrodes on an existing axis."""
+    show_numbers = params.pop("show_numbers", False)
+    number_every = params.pop("number_every", 4)
+
+    scatter_kwargs = {"s": 40, "color": "black", "alpha": 1.0,
+        **params}
+
+    ax.scatter(df["X"], df["Z"], **scatter_kwargs)
+
+    if show_numbers:
+        for i, (_, row) in enumerate(df.iterrows()):
+            if i % number_every == 0:
+                ax.annotate(
+                    str(row["elec_number"]),
+                    (row["X"], row["Z"]),
+                    xytext=(4, 4),
+                    textcoords="offset points")
+
+    return ax

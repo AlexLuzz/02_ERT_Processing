@@ -2,7 +2,7 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 import re
-from src.loaders.loading_tools import scan_header, split_sas4000_surveys, compute_geometric_factors
+from src.loaders.loading_tools import scan_header, split_sas4000_surveys, compute_geometric_factors, load_geometry
 from src.core.base import ProjectBase
 import numpy as np
 
@@ -13,6 +13,7 @@ class ERTLoader(ProjectBase):
         self,
         site_id: str,
         elec_pos_path: Path | str | None = None,
+        elec_pos_params: dict | None = None,
         absolute_pos: bool = True,
         inverse_order: bool = False,
     ):
@@ -21,9 +22,8 @@ class ERTLoader(ProjectBase):
         self.elec_pos = None
 
         if elec_pos_path is not None:
-            self.elec_pos = self.load_geometry(
-                elec_pos_path, absolute_pos=absolute_pos, inverse_order=inverse_order
-            )
+            self.logger.info(f"Loading geometry file: {elec_pos_path}")
+            self.elec_pos = load_geometry(elec_pos_path, elec_pos_params)
             self.logger.info(
                 f"Initialized ERTLoader for site: '{self.site_id}' with"
                 f" {len(self.elec_pos)} electrodes loaded."
@@ -75,7 +75,6 @@ class ERTLoader(ProjectBase):
         hardware_id: str, 
         filepath_stem: str, 
         survey_date, 
-        elec_pos: pd.DataFrame = None
     ) -> pd.DataFrame:
         """
         Centralized method to add identifiers, compute geometric factors & rhoa, 
@@ -240,45 +239,3 @@ class ERTLoader(ProjectBase):
             
         return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
 
-    def load_geometry(
-        self,
-        filepath: Path,
-        absolute_pos: bool = False,
-        inverse_order: bool = False,
-        params: dict | None = None,
-    ) -> pd.DataFrame:
-        """
-        Loads electrode geometry files.
-        Header expected: elec_number, X, Y, Z
-        """
-        self.logger.info(f"Loading geometry file: {filepath.name}")
-
-        params = params or {}
-        projection = params.get("projection", {})
-
-        df = pd.read_csv(filepath, sep=None, engine="python")
-        df.columns = df.columns.str.strip()
-
-        for col in ["X", "Y", "Z"]:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-
-        if inverse_order:
-            df[["X", "Y", "Z"]] = df[["X", "Y", "Z"]].iloc[::-1].reset_index(drop=True)
-            self.logger.info(" -> Applied inverse order to coordinates.")
-
-        if absolute_pos:
-            df[["X", "Y", "Z"]] -= df[["X", "Y", "Z"]].iloc[0]
-            self.logger.info(" -> Converted to absolute positions (Electrode 1 = Origin).")
-
-        if projection.get("enabled", False):
-            xy = df[["X", "Y"]].to_numpy()
-            center = xy.mean(axis=0)
-            _, _, vh = np.linalg.svd(xy - center)
-            direction = vh[0]
-
-            axis = projection.get("output_axis", "X (m)")
-            df[axis] = (xy - center) @ direction
-
-            self.logger.info(f" -> Projected XY coordinates onto best-fit line as '{axis}'.")
-
-        return df
