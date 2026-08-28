@@ -5,7 +5,8 @@
     - [ ] Identify recip and measurement type for filtering / plotting purpose
 
     ## Medium Priority ⚡
-    - [ ] Improve plot_electrodes func
+    - [ ] Improve fetch_weather_data call logic so station_id matches
+    - [ ] Improve plot_electrodes func (so it can receive colors and stuff)
     - [ ] raw_data_report : First page is useless
     - [ ] Improve ProjectPaths folder names
 
@@ -18,7 +19,9 @@
     - [ ] Documentation ; check obsidian and update
 
 ## ✅ Completed
-    - [x] Create mesh building (pygimli and Gmsh), testing and visualizing scripts 
+    - [x] 2026-08-27 : Find meteo station for MCM, Val d'Or city and airport 
+    48.125754 and -78.119571 (https://climate.weather.gc.ca/historical_data/search_historic_data_stations_e.html)
+    - [x] 2026-08-26 : Create mesh building (pygimli and Gmsh), testing and visualizing scripts 
     - [x] 2026-08-26 : When importing elec_pos i should be able to specify projection X/Y, maybe through a dict ? 
     - [x] 2026-08-26 : Bring back temperature and rain / snow plotting as it was done in article, 
           improve weather data fetching and plotting overall logic 

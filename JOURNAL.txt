@@ -1,4 +1,9 @@
 2026-08-27 
+    - debugging on pygimli_mesh_tools func, the boundary definition was wrong, important to check with the classic pg.show 
+      with markers to be sure -1 is at the top, 1 at the bottom and nothing is weird
+    - Worked on ERTProcessor to make it usable, notable data saving
+    - IMPORTANT : saving mesh rely on pygimli, due to long paths (oneDrive) there's a silent crash
+      that can be bypassed with a tempfile (see safe_mesh_save)
 
 
 2026-08-26

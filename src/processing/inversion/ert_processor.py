@@ -4,7 +4,7 @@ import pandas as pd
 import pygimli.physics.ert as ert
 from datetime import datetime
 from src.core.base import ProjectBase
-from src.processing.inversion.pygimli_tools import build_ert_container
+from src.processing.inversion.pygimli_tools import build_ert_containers_timeseries
 
 class ERTProcessor(ProjectBase):
     """
@@ -17,11 +17,10 @@ class ERTProcessor(ProjectBase):
         self.mesh = mesh
         self.elec_pos = electrode_positions
         
-        # Create a unique simulation name using the requested date/hour:min format
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
         self.sim_name = f"{simulation_name}_{timestamp}"
         
-        # Setup the CSV registry file path
+        # Explicit path management built directly into the processor
         self.folder_path = folder_path
         self.registry_path = self.folder_path / self.sim_name / "inversion_registry.csv"
         self.registry_path.parent.mkdir(parents=True, exist_ok=True)
@@ -40,30 +39,33 @@ class ERTProcessor(ProjectBase):
         self.logger.info(f"Mesh geometry: {width:.2f}m wide x {height:.2f}m high")
         self.logger.info(f"Mesh density: {n_cells} cells, {n_nodes} nodes")
 
-    def filter_and_format(self, df: pd.DataFrame, min_length: int = 100, error_val: float = 5.0) -> pd.DataFrame:
-        """Validates survey lengths using date_survey and overrides error values."""
+    def set_errors(self, df: pd.DataFrame, error_val) -> pd.DataFrame:
+        """
+        Flexibly assigns error values to the dataset.
+        error_val can be a single float (e.g., 5.0) or an array-like series of values.
+        """
         df_work = df.copy()
-        initial_surveys = df_work['date_survey'].nunique()
         
-        counts = df_work.groupby('date_survey').size()
-        valid_dates = counts[counts >= min_length].index
-        df_work = df_work[df_work['date_survey'].isin(valid_dates)]
-        
-        if error_val is not None:
+        if isinstance(error_val, (int, float)):
+            df_work['err_stk (%)'] = float(error_val)
+            self.logger.info(f"Applied fixed global error: {error_val}%")
+        elif len(error_val) == len(df_work):
             df_work['err_stk (%)'] = error_val
+            self.logger.info("Applied array of custom error values.")
+        else:
+            raise ValueError("error_val must be a single number or an array matching the dataframe length.")
             
-        self.logger.info(f"Survey check: Kept {len(valid_dates)}/{initial_surveys} surveys (>= {min_length} meas).")
         return df_work
 
     def run_inversion(self, df: pd.DataFrame, inv_params: dict, inversion_type: str = "classic", save_all_iterations: bool = True) -> dict:
         """Executes inversion and logs full history to a pickle file and summary to CSV."""
         run_start_time = datetime.now()
-        run_id = run_start_time.strftime("%Y%m%d_%H%M%S")
+        run_id = run_start_time.strftime("%Y%m%d_%H%M")
         self.logger.info(f"Starting {inversion_type} inversion loop (Run ID: {run_id})...")
         
-        containers = build_ert_container(df_survey=df, geom_df=self.elec_pos)
+        # Use the timeseries wrapper to handle the groupby and iteration internally
+        containers = build_ert_containers_timeseries(df=df, geom_df=self.elec_pos, date_col='date_survey')
 
-        # Simplified results dictionary
         res = {'times': [], 'models': [], 'responses': [], 'chi2': [], 'rms': []}
         if save_all_iterations:
             res['iteration_history'] = []
@@ -74,7 +76,7 @@ class ERTProcessor(ProjectBase):
         for i, item in enumerate(containers):
             self.logger.info(f"Inverting step {i+1}/{len(containers)}: {item['time']}")
             
-            mgr = ert.ERTManager(item['data'], sr=False, verbose=inv_params.get('verbose', False))
+            mgr = ert.ERTManager(item['data'], sr=False, verbose=inv_params.get('verbose', True))
             step_params = inv_params.copy()
             
             if inversion_type == "cascade" and i > 0 and current_start_model is not None:
@@ -83,34 +85,69 @@ class ERTProcessor(ProjectBase):
             model = mgr.invert(mesh=self.mesh, **step_params)
             current_start_model = model
             
-            # Store final states
             res['times'].append(str(item['time']))
             res['models'].append(np.array(model))
             res['responses'].append(np.array(mgr.inv.response))
-            res['chi2'].append(mgr.inv.chi2)
-            res['rms'].append(mgr.inv.relrms)
+            res['chi2'].append(mgr.inv.chi2())
+            res['rms'].append(mgr.inv.relrms())
             
-            # Store full iteration history (model, chi2, and rms per step)
             if save_all_iterations:
                 history = {
                     'chi2_history': list(mgr.inv.chi2History),
-                    'rms_history': list(mgr.inv.relrmsHistory),
-                    'model_history': [np.array(m) for m in mgr.inv.models] if hasattr(mgr.inv, 'models') else []
+                    'model_history': list(mgr.inv.modelHistory),
                 }
                 res['iteration_history'].append(history)
                 total_iterations += len(history['chi2_history'])
 
-        # Stack into 2D matrices
         res['models'] = np.vstack(res['models'])
         res['responses'] = np.vstack(res['responses'])
 
-        # 1. Save deep data via ProjectBase
-        config = {"run_id": run_id, "inversion_type": inversion_type, "params": inv_params}
-        file_path = self.save(self.sim_name, data=res, config=config, data_format='pkl')
+        # 1. Generate the absolute target path first
+        target_path = self.folder_path / self.sim_name / f"{run_id}_results.pkl"
+
+        # 2. Update the CSV ledger using the newly generated filename
+        self._update_registry(run_id, run_start_time, inversion_type, inv_params, res, total_iterations, target_path.name)
+
+        # 3. Save the paraDomain mesh natively and log it in the config
+        import os
+        import json
         
-        # 2. Save high-level summary to the CSV ledger
-        self._update_registry(run_id, run_start_time, inversion_type, inv_params, res, total_iterations, file_path.name)
+        mesh_filename = f"{run_id}_paraDomain.bms"
+        mesh_path_str = str(self.folder_path / self.sim_name / mesh_filename).replace('\\', '/')
         
+        # Package varying-shaped arrays into a DataFrame (perfect for Parquet)
+        df_dict = {
+            'time': res['times'],
+            'chi2': res['chi2'],
+            'rms': res['rms'],
+            'model': list(res['models']),       # Converts 2D array to a list of 1D arrays
+            'response': list(res['responses'])  # Converts 2D array to a list of 1D arrays
+        }
+        
+        if 'iteration_history' in res:
+            # Comma-separated for chi2
+            df_dict['chi2_history'] = [",".join(map(str, h['chi2_history'])) for h in res['iteration_history']]
+            
+            # For model history: commas separate values, pipes (|) separate iterations
+            df_dict['model_history'] = [
+                "|".join([",".join(map(str, m_iter)) for m_iter in h['model_history']]) 
+                for h in res['iteration_history']
+            ]
+            
+        df_results = pd.DataFrame(df_dict)
+        
+        # Switch the target path from .pkl to .parquet
+        target_path = target_path.with_suffix('.csv')
+        
+        config = {
+            "run_id": run_id, 
+            "inversion_type": inversion_type, 
+            "params": inv_params,
+            "mesh_file": mesh_filename
+        }
+        
+        self.save(data=df_results, file_path=target_path, metadata=config)
+        self.mesh.save(mesh_path_str)
         return res
 
     def _update_registry(self, run_id, start_time, inv_type, params, res, total_iters, filename):
@@ -131,7 +168,6 @@ class ERTProcessor(ProjectBase):
             'saved_file': filename
         }
         
-        # Flatten inversion parameters into the summary row
         for k, v in params.items():
             summary[f"param_{k}"] = v
             
@@ -147,17 +183,7 @@ class ERTProcessor(ProjectBase):
         self.logger.info(f"Ledger updated: {self.registry_path.name}")
 
     def run_ensemble(self, df: pd.DataFrame, param_grid: dict, inversion_type: str = "classic", save_all_iterations: bool = True) -> dict:
-        """
-        Runs multiple inversions based on a grid of parameters.
-        
-        The itertools.product function creates a Cartesian product (every possible combination) 
-        of the parameter lists. 
-        Example: {'lam': [10, 20], 'zWeight': [0.5, 0.7]} becomes 4 separate inversion runs:
-        1. lam=10, zWeight=0.5
-        2. lam=10, zWeight=0.7
-        3. lam=20, zWeight=0.5
-        4. lam=20, zWeight=0.7
-        """
+        """Runs multiple inversions based on a grid of parameters."""
         keys, values = zip(*param_grid.items())
         permutations = [dict(zip(keys, v)) for v in itertools.product(*values)]
         

@@ -59,7 +59,9 @@ def fetch_weather_data(start_date, end_date, freq='D', station_id=51157):
         start_date (str or datetime): Start date.
         end_date (str or datetime): End date.
         freq (str): Pandas frequency string (e.g., 'D' for daily, '6h' for 6 hours).
-        station_id (int): Weather station ID.
+        station_id (int): Weather station ID. 
+                - For Berlier-Bergman, Laval : 51157 (YUL) 
+                - For MCM, Val d'Or : 71725 (city), 71941 (airport)
     Returns:
         pd.DataFrame: Single DataFrame containing date, snow, rain, and temp.
     """

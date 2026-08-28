@@ -25,23 +25,24 @@ def build_unstructured_mesh(
 
     surface = [[xi, zi + surface_offset] for xi, zi in zip(x, z)]
     boundary = surface + [
+        [x[-1] + extension, z.min()], 
         [x[-1] + extension, z.min() - depth],
-        [x[0] - extension, z.min() - depth]
+        [x[0] - extension, z.min() - depth],
+        [x[0] - extension, z.max()]
     ]
     
     plc = mt.createPolygon(
         boundary, 
         isClosed=True, 
         addNodes=3, 
-        interpolate="spline", 
+        interpolate="linear", 
         marker=1  # Explicitly mark the inner domain
     )
 
     # Mark all top surface boundaries with -1 (Neumann condition) for appendTriangleBoundary
-    y_cutoff = z.min() - depth * 0.5
     for b in plc.boundaries():
         # Any boundary edge resting in the upper section is treated as surface topography
-        if b.center().y() > y_cutoff:
+        if b.center().y() > z.min():
             b.setMarker(-1)
 
     # Add electrodes and local refinement dummy nodes

@@ -62,3 +62,39 @@ def interpolate_excluded_period(df, electrodes, start_date, end_date, date_col='
     # Drop rows that couldn't be interpolated (i.e., at the very start/end of a series)
     df_work = df_work.dropna(subset=cols_to_interp, how='all')
     return df_work
+
+def filter_common_measurements(df: pd.DataFrame, config_cols=['A', 'B', 'M', 'N'], date_col='date_survey') -> pd.DataFrame:
+    """
+    Ensures every survey has the exact same length by keeping only the 
+    electrode configurations present across every single time step.
+    """
+    df_work = df.copy()
+    initial_rows = len(df_work)
+    
+    # 1. Identify configs common to all dates
+    common_configs = None
+    for survey_date, group in df_work.groupby(date_col):
+        configs = set(map(tuple, group[config_cols].values))
+        if common_configs is None:
+            common_configs = configs
+        else:
+            common_configs = common_configs.intersection(configs)
+            
+    if not common_configs:
+        raise ValueError("No common measurements found across all surveys.")
+        
+    # 2. Filter dataframe
+    df_work['config_key'] = df_work[config_cols].apply(tuple, axis=1)
+    df_work = df_work[df_work['config_key'].isin(common_configs)].drop(columns=['config_key'])
+    
+    # Sort strictly by date and configuration to guarantee identical array ordering later
+    df_work = df_work.sort_values([date_col] + config_cols)
+    
+    dropped = initial_rows - len(df_work)
+    surveys = df_work[date_col].nunique()
+    meas_per_survey = len(common_configs)
+    
+    print(f"Format check: {surveys} surveys kept. {meas_per_survey} common measurements per survey.")
+    print(f"Discarded {dropped} unshared measurements.")
+    
+    return df_work
