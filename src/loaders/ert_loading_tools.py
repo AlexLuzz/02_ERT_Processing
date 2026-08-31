@@ -257,7 +257,7 @@ def load_geometry(filepath: Path, params: dict | None = None) -> pd.DataFrame:
             }
 
             - ``absolute_pos`` (bool, default=False): Set Electrode 1 to ``[0, 0, 0]``.
-            - ``inverse_order`` (bool, default=False): Reverse electrode order.
+            - ``inverse_order`` (bool, default=False): Reverse electrode numbering.
             - ``projection`` (dict, optional): Best-fit line projection:
                 - ``type`` (str, default="best_fit"): Projection method.
                   Options are ``"best_fit"`` and ``"distance"``.
@@ -277,7 +277,8 @@ def load_geometry(filepath: Path, params: dict | None = None) -> pd.DataFrame:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
     if inverse_order:
-        df = df.iloc[::-1].reset_index(drop=True)
+        df["elec_number"] = df["elec_number"].iloc[::-1].to_numpy()
+        df = df.sort_values("elec_number").reset_index(drop=True)
 
     if absolute_pos:
         df[["X", "Y", "Z"]] -= df[["X", "Y", "Z"]].iloc[0]

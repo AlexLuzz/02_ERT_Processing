@@ -2,7 +2,7 @@ from config.paths import ProjectPaths
 from src.loaders.ert_loading_tools import load_geometry
 from src.mesh.pygimli_mesh_tools import safe_mesh_load
 from src.processing.inversion.ert_processor import ERTProcessor
-from src.visualization.ensemble_survey_report import EnsembleSurveyReport
+from src.visualization.inversion_data_report import InversionDataReport
 
 if __name__ == "__main__":
     paths = ProjectPaths(user='AQ96560') 
@@ -23,13 +23,6 @@ if __name__ == "__main__":
 
     single_df_clean = processor.load(paths.OUTPUT_DIR / "MCM_GEO" / "clean_df.pkl")
 
-    param_grid = {
-            'lam': [5, 10, 20],
-            'robustData': [True, False],
-            'zWeight': [0.1, 0.4, 0.7, 1.0],
-            'limits': [[1, 10000], [10, 5000]]
-        }
-
     parameters = {
                 'lam': [20],
                 'robustData': [True],
@@ -46,13 +39,13 @@ if __name__ == "__main__":
     )
     
     # Generate the unified grid report
-    pdf_path = processor.folder_path / processor.sim_name / "Test_report.pdf"
+    pdf_path = processor.folder_path / processor.sim_name / "Test_report_once.pdf"
     
-    EnsembleSurveyReport.print(
-        filepath=pdf_path,
-        ensemble_results=ensemble_results,
-        geom_df=geom,
-        mesh=mesh,
-        param_grid=params
-    )
+    InversionDataReport.print
+
+    self.mesh = mesh
+            self.times = times
+            self.models = models
+            self.elec_pos = elec_pos
+    
     print(f"✅ Ensemble grid report saved to {pdf_path.name}")

@@ -21,7 +21,7 @@ conda activate ert_env
 
 # Upgrade pip and install the data/utility packages
 python -m pip install --upgrade pip
-python -m pip install pygimli matplotlib gmsh numpy scipy pandas requests h5py
+python -m pip install pygimli matplotlib gmsh numpy==1.26.4 scipy pandas requests h5py
 
 # TO check if necessary : pyarrow fastparquet pyyaml
 # pip install numpy==1.26.4 # in case of conflict for pygimli
@@ -29,7 +29,7 @@ python -m pip install pygimli matplotlib gmsh numpy scipy pandas requests h5py
 # IN CASE OF MATPLOTLIB SECRET CRASH - Separate pygimli venv with the rest
 # To remove and environment
 conda deactivate
-conda remove -n myenv --all
+conda remove -n ert_env --all
  
 # To avoid import errors, make su
 my_project/

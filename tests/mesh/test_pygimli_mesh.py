@@ -17,7 +17,7 @@ def test_build_unstructured_mesh():
     ax, coll = plot_array_on_mesh(mesh_polygons, edgecolor='black', facecolor='none', alpha=0.2)
 
 def test_build_MCM_GEO():
-    paths = ProjectPaths(user='alexi')            
+    paths = ProjectPaths(user='AQ96560')            
     bb_geom = load_geometry(paths.MCM_GEO_ELECS_POS,
                             params={"absolute_pos": True, 
                                     "inverse_order": True,
@@ -29,7 +29,7 @@ def test_build_MCM_GEO():
     plot_electrodes(bb_geom, ax)
     print(f"Mesh has {mesh.cellCount()} cells and {mesh.nodeCount()} nodes.")
 
-    mesh_path = paths.OUTPUT_DIR / 'MCM_GEO_9247cells.bms'
+    mesh_path = paths.OUTPUT_DIR / 'MCM_GEO_9247cells_V2.bms'
 
     safe_mesh_save(mesh, mesh_path)
 

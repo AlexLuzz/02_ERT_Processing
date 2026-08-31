@@ -1,4 +1,5 @@
 {
+    "python.terminal.useEnvFile": true,
     "python.envFile": "${workspaceFolder}/.env",
     "python.terminal.executeInFileDir": false,
     "python-envs.defaultEnvManager": "ms-python.python:conda",

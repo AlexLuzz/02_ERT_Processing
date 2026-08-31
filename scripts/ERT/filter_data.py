@@ -5,7 +5,7 @@ from src.processing.data.data_preparator import DataPreparator
 from src.visualization.single_filtrated_report import FiltratedDataReport
 
 if __name__ == "__main__":
-    paths = ProjectPaths(user='alexi') 
+    paths = ProjectPaths(user='AQ96560') 
     
     # 1. Load Data
     geom = load_geometry(paths.MCM_GEO_ELECS_POS, params={"absolute_pos": True, 
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     preparator.save(single_df_clean, paths.OUTPUT_DIR / "MCM_GEO" / "clean_DD_df", {})
 
     # 3. Report
-    report_path = paths.OUTPUT_DIR / "MCM_GEO" / "Filtration_Report_DD_DDrecip.pdf"
+    report_path = paths.OUTPUT_DIR / "MCM_GEO" / "Filtration_Report_DD_DDrecipAAAA.pdf"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     
     FiltratedDataReport.print(

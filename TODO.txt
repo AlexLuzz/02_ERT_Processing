@@ -19,6 +19,7 @@
     - [ ] Documentation ; check obsidian and update
 
 ## ✅ Completed
+    - [x] 2026-08-31 : Correct electrode ordering 
     - [x] 2026-08-27 : Identify recip and measurement type for filtering / plotting purpose, funcs are in 
     loading_tools and implemented in the finalize_standardization step
     - [x] 2026-08-27 : Improved logic concerning load_geometry through the ERTLoader
