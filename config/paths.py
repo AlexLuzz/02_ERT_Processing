@@ -39,9 +39,10 @@ class ProjectPaths:
         self.MCM_SAS4000_GEO = onedrive_root / '000-Doctorat/13_MCM/04_Data_SAS4000_2026E'
 
         self.BB_ELECS_POS = self.DATA_DIR / 'ELECS_POS' / 'BB_ELECS_POS.csv'
-        self.BB_ELECS_POS_TRUE = self.DATA_DIR / 'ELECS_POS' / 'BB_ELECS_POS_TRUE.csv'
         self.MCM_MONO2M_ELECS_POS = self.DATA_DIR / 'ELECS_POS' / 'MCM_MONO2M_ELECS_POS.csv'
         self.MCM_MONO1M_ELECS_POS = self.DATA_DIR / 'ELECS_POS' / 'MCM_MONO1M_ELECS_POS.csv'
+        self.MCM_MONO2M_ELECS_POS_TRUE = self.DATA_DIR / 'ELECS_POS' / 'MCM_MONO2M_ELECS_POS_TRUE.csv'
+        self.MCM_MONO1M_ELECS_POS_TRUE = self.DATA_DIR / 'ELECS_POS' / 'MCM_MONO1M_ELECS_POS_TRUE.csv'
         self.MCM_GEO_ELECS_POS = self.DATA_DIR / 'ELECS_POS' / 'MCM_GEO_ELECS_POS.csv'
 
         # If a project name is provided, route outputs to that specific project folder
