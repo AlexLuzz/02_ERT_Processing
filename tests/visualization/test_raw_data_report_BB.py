@@ -1,6 +1,6 @@
 from src.loaders.ert_loader import ERTLoader
 from config.paths import ProjectPaths
-from src.visualization.raw_tlert_report import RawTLERTReport
+from src.visualization.single_filtrated_report import RawTLERTReport
 
 if __name__ == "__main__":
     paths = ProjectPaths(user='alexi') 

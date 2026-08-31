@@ -57,16 +57,20 @@ class ERTProcessor(ProjectBase):
             
         return df_work
 
-    def run_inversion(self, df: pd.DataFrame, inv_params: dict, inversion_type: str = "classic", save_all_iterations: bool = True) -> dict:
+    def run_inversion(self, df: pd.DataFrame, 
+                      inv_params: dict, 
+                      inversion_type: str = "classic", 
+                      save_all_iterations: bool = True,
+                      save_to_disk: bool = True) -> dict:
         """Executes inversion and logs full history to a pickle file and summary to CSV."""
         run_start_time = datetime.now()
-        run_id = run_start_time.strftime("%Y%m%d_%H%M")
+        run_id = run_start_time.strftime("%Y%m%d_%H%M%S")
         self.logger.info(f"Starting {inversion_type} inversion loop (Run ID: {run_id})...")
         
         # Use the timeseries wrapper to handle the groupby and iteration internally
         containers = build_ert_containers_timeseries(df=df, geom_df=self.elec_pos, date_col='date_survey')
 
-        res = {'times': [], 'models': [], 'responses': [], 'chi2': [], 'rms': []}
+        res = {'times': [], 'models': [], 'responses': [], 'chi2': [], 'rms': [], 'params': inv_params}
         if save_all_iterations:
             res['iteration_history'] = []
 
@@ -102,38 +106,29 @@ class ERTProcessor(ProjectBase):
         res['models'] = np.vstack(res['models'])
         res['responses'] = np.vstack(res['responses'])
 
-        # 1. Generate core paths
-        mesh_filename = f"{run_id}_paraDomain.bms"
-        h5_path = self.folder_path / self.sim_name / f"{run_id}_results.h5"
-        csv_path = self.folder_path / self.sim_name / f"{run_id}_metrics.csv"
-        
-        # 2. Save Mesh natively (Using safe_mesh_save to avoid C++ path bugs)
-        mesh_path = self.folder_path / self.sim_name / mesh_filename
-        self.safe_mesh_save(self.mesh, mesh_path)
-
-        # 3. Update Registry CSV
-        self._update_registry(run_id, run_start_time, inversion_type, inv_params, res, total_iterations, h5_path.name)
-        
-        config = {"run_id": run_id, "inversion_type": inversion_type, "params": inv_params, "mesh_file": mesh_filename}
-
-        # 4. Save Heavy Arrays to HDF5
-        h5_data = {
-            'times': res['times'],
-            'models': res['models']
-        }
-        self.save(data=h5_data, file_path=h5_path, metadata=config)
-        
-        # 5. Save 1D Metrics to Excel-Friendly CSV
-        csv_dict = {
-            'time': res['times'],
-            'chi2': res['chi2'],
-            'rms': res['rms'],
-            'response': [",".join(map(str, r)) for r in res['responses']]
-        }
-        if 'iteration_history' in res:
-            csv_dict['chi2_history'] = [",".join(map(str, h['chi2_history'])) for h in res['iteration_history']]
+        if save_to_disk:
+            mesh_filename = f"{run_id}_paraDomain.bms"
+            h5_path = self.folder_path / self.sim_name / f"{run_id}_results.h5"
+            csv_path = self.folder_path / self.sim_name / f"{run_id}_metrics.csv"
             
-        self.save(data=pd.DataFrame(csv_dict), file_path=csv_path, metadata=config)
+            mesh_path = self.folder_path / self.sim_name / mesh_filename
+            self.save_mesh(self.mesh, mesh_path)
+    
+            self._update_registry(run_id, run_start_time, inversion_type, inv_params, res, total_iterations, h5_path.name)
+            
+            config = {"run_id": run_id, "inversion_type": inversion_type, "params": inv_params, "mesh_file": mesh_filename}
+    
+            h5_data = {'times': res['times'], 'models': res['models']}
+            self.save(data=h5_data, file_path=h5_path, metadata=config)
+            
+            csv_dict = {
+                'time': res['times'], 'chi2': res['chi2'], 'rms': res['rms'],
+                'response': [",".join(map(str, r)) for r in res['responses']]
+            }
+            if 'iteration_history' in res:
+                csv_dict['chi2_history'] = [",".join(map(str, h['chi2_history'])) for h in res['iteration_history']]
+                
+            self.save(data=pd.DataFrame(csv_dict), file_path=csv_path, metadata=config)
         
         return res
 
@@ -170,7 +165,7 @@ class ERTProcessor(ProjectBase):
         self.logger.info(f"Ledger updated: {self.registry_path.name}")
 
     def run_ensemble(self, df: pd.DataFrame, param_grid: dict, inversion_type: str = "classic", save_all_iterations: bool = True) -> dict:
-        """Runs multiple inversions based on a grid of parameters."""
+        """Runs multiple inversions based on a grid of parameters and aggregates the save."""
         keys, values = zip(*param_grid.items())
         permutations = [dict(zip(keys, v)) for v in itertools.product(*values)]
         
@@ -179,7 +174,41 @@ class ERTProcessor(ProjectBase):
         
         for i, params in enumerate(permutations):
             self.logger.info(f"--- Ensemble {i+1}/{len(permutations)} | Params: {params} ---")
-            res = self.run_inversion(df, inv_params=params, inversion_type=inversion_type, save_all_iterations=save_all_iterations)
+            df_work = self.set_errors(df, 10)
+            
+            # SUPPRESS individual saves
+            res = self.run_inversion(df_work, inv_params=params, 
+                                     inversion_type=inversion_type, 
+                                     save_all_iterations=save_all_iterations,
+                                     save_to_disk=False)
             all_results[f"run_{i}"] = res
+            
+        # --- AGGREGATED SAVE LOGIC ---
+        self.logger.info("Aggregating ensemble results for master save...")
+        
+        # 1. Save Mesh (Once)
+        mesh_filename = f"{self.sim_name}_ensemble_paraDomain.bms"
+        self.save_mesh(self.mesh, self.folder_path / self.sim_name / mesh_filename)
+
+        h5_flat = {}
+        csv_rows = []
+        
+        # 2. Flatten Arrays for HDF5 & Extract Metrics for CSV
+        for k, v in all_results.items():
+            h5_flat[f"{k}_models"] = v['models']
+            h5_flat[f"{k}_times"] = v['times']
+            
+            row = {'run_id': k, 'chi2': v['chi2'][0], 'rms': v['rms'][0]}
+            row.update(v['params'])
+            csv_rows.append(row)
+
+        config = {"ensemble": True, "param_grid": param_grid, "mesh_file": mesh_filename}
+
+        # 3. Save Master Files
+        h5_path = self.folder_path / self.sim_name / f"{self.sim_name}_ensemble_results.h5"
+        csv_path = self.folder_path / self.sim_name / f"{self.sim_name}_ensemble_metrics.csv"
+        
+        self.save(data=h5_flat, file_path=h5_path, metadata=config)
+        self.save(data=pd.DataFrame(csv_rows), file_path=csv_path, metadata=config)
             
         return all_results

@@ -1,6 +1,6 @@
 from src.loaders.ert_loader import ERTLoader
 from config.paths import ProjectPaths
-from src.visualization.raw_tlert_report import RawTLERTReport
+from src.visualization.single_filtrated_report import RawTLERTReport
 from src.loaders.ert_loading_tools import load_geometry
 from src.loaders.weather_loading_tools import fetch_weather_data
 
