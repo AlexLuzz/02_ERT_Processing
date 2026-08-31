@@ -57,7 +57,7 @@ def plot_pseudo_doi(dataContainer, array_type="schlumberger"):
 
 if __name__ == "__main__":
     paths = ProjectPaths(user='AQ96560') 
-    geom_df = load_geometry(paths.MCM_MONO2M_ELECS_POS_TRUE, 
+    geom_df = load_geometry(paths.MCM_MONO2M_ELECS_POS, 
                          params={"absolute_pos": True, 
                                  'inverse_order': False,
                                  "projection": {"type": "distance", "output_axis": "X"}})
@@ -65,9 +65,9 @@ if __name__ == "__main__":
     geom_df = geom_df.sort_values('elec_number')
     sensor_positions = geom_df[['X', 'Z']].values
     
-    data = ert.createData(elecs=sensor_positions, schemeName='wa', inverse=False)
+    data = ert.createData(elecs=sensor_positions, schemeName='dd', inverse=False)
 
-    paths_result = paths.OUTPUT_DIR / "test_wa.csv"
+    paths_result = paths.OUTPUT_DIR / "test_dd_42.csv"
 
     n = len(data["a"])
 

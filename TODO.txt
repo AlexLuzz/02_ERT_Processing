@@ -1,13 +1,15 @@
 ## 🔄 In Progress
 
     ## High Priority 🔥
-    - [ ] Work on inversion stuff
+    - [/] Check recip computation with Prime surveys, SAS4000 is okay (tested with MCM GEO)
+    - [ ] Implement recip error analysis to compute error func
+    - [ ] Clean tests / scripts folder, too many scripts, update the tests they're outdated
+    - [ ] Visualization classes are getting out of hand
+    - [ ] Improve logic ERTProcessor path management, it always creates new folders it's bothersome
 
     ## Medium Priority ⚡
-    - [ ] Improve fetch_weather_data call logic so station_id matches
+    - [ ] Make fetch_weather_data zork for MCM
     - [ ] Improve ProjectPaths folder names
-
-    - [ ] Improve plot_electrodes func (so it can receive colors and stuff)
     - [ ] raw_data_report : First page is useless
     
     ## Side-side project that will never see the light
@@ -20,6 +22,8 @@
 
 ## ✅ Completed
     - [x] 2026-08-31 : Correct electrode ordering 
+    - [x] 2026-08-30 : working, ensemble is running, need to improve saving logic
+    - [x] 2026-08-30 : Improve plot_electrodes func (so it can receive colors and stuff)
     - [x] 2026-08-27 : Identify recip and measurement type for filtering / plotting purpose, funcs are in 
     loading_tools and implemented in the finalize_standardization step
     - [x] 2026-08-27 : Improved logic concerning load_geometry through the ERTLoader

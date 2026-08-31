@@ -46,32 +46,52 @@ class DataPreparator(ProjectBase):
         return df[mask].copy()
 
     @log_filtration
-    def filter_standard_survey(self, df, min_v=0.1, max_err_stk=5.0, max_err_rec=10.0):
-        """Standardized cascade filter utilizing core threshold masks."""
-        self.logger.info(f"--- Breakdown: Standard Survey Filtration ({len(df)} total meas) ---")
-        
-        # Voltage mask
-        v_mask = get_threshold_mask(df, 'Vmn (mV)', min_val=min_v)
-        self.logger.info(f" -> Voltage filter (Vmn > {min_v}mV): {(~v_mask).sum()} measurements dropped.")
-        
-        # Stacking Error mask
-        stk_mask = get_threshold_mask(df, 'err_stk (%)', max_val=max_err_stk)
-        self.logger.info(f" -> Stacking error filter (err_stk <= {max_err_stk}%): {(~stk_mask).sum()} measurements dropped.")
-        
-        # Combine
-        final_mask = v_mask & stk_mask
-        
-        # Optional Reciprocal Error mask
-        if 'err_rec (%)' in df.columns and df['err_rec (%)'].notna().any():
-            rec_mask = get_threshold_mask(df, 'err_rec (%)', max_val=max_err_rec) | df['err_rec (%)'].isna()
-            self.logger.info(f" -> Reciprocal error filter (err_rec <= {max_err_rec}%): {(~rec_mask).sum()} measurements dropped.")
-            final_mask = final_mask & rec_mask
-        else:
-            self.logger.info(" -> Reciprocal error filter skipped (column missing or entirely NaN).")
+    def filter_standard_survey(self, df, thresholds):
+        """Filter survey data using configurable min/max thresholds.
+            
+            Available cols to filter are :
+                'A': 'Int64', 
+                'B': 'Int64', 
+                'M': 'Int64', 
+                'N': 'Int64',
+                'R (Ohm)': float, 
+                'Vmn (mV)': float, 
+                'Iab (mA)': float, 
+                'Tx (V)': float,
+                'R_ab (kOhm)': float, 
+                'k (m)': float, 
+                'rhoa (Ohm.m)': float,
+                'err_stk (%)': float,
+        thresholds : dict
+            Example: {
+            "Vmn (mV)": {"min": 0.1}, 
+            "err_stk (%)": {"max": 5.0}
+            }
+            Supports "min" and/or "max".
+        """
+        self.logger.info(f"--- Survey Filtration ({len(df)} measurements) ---")
+        final_mask = pd.Series(True, index=df.index)
+
+        for param, cfg in thresholds.items():
+            if param not in df.columns or not df[param].notna().any():
+                self.logger.warning(f" -> Skipped '{param}' (missing or all NaN).")
+                continue
+
+            mask = pd.Series(True, index=df.index)
+
+            if cfg.get("min") is not None:
+                mask &= get_threshold_mask(df, param, min_val=cfg["min"])
+
+            if cfg.get("max") is not None:
+                mask &= get_threshold_mask(df, param, max_val=cfg["max"])
+
+            self.logger.info(f" -> {param}: {(~mask).sum()} dropped.")
+            final_mask &= mask
 
         self.clean_dfs = df[final_mask].copy()
+        self.logger.info(f"--- Done: {len(self.clean_dfs)} remaining ---")
         return self.clean_dfs
-    
+        
     def print_logs(self):
         if self.memory_handler is None:
             print("Memory logging is not enabled.")

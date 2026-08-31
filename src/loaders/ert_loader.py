@@ -30,11 +30,20 @@ class ERTLoader(ProjectBase):
         )
         
         self.ERT_COLS = {
-        'A': 'Int64', 'B': 'Int64', 'M': 'Int64', 'N': 'Int64',
-        'R (Ohm)': float, 'Vmn (mV)': float, 'Iab (mA)': float, 'Tx (V)': float,
-        'R_ab (kOhm)': float, 'k (m)': float, 'rhoa (Ohm.m)': float,
+        'A': 'Int64', 
+        'B': 'Int64', 
+        'M': 'Int64', 
+        'N': 'Int64',
+        'R (Ohm)': float, 
+        'Vmn (mV)': float, 
+        'Iab (mA)': float, 
+        'Tx (V)': float,
+        'R_ab (kOhm)': float, 
+        'k (m)': float, 
+        'rhoa (Ohm.m)': float,
         'err_stk (%)': float,
-        'date_survey': 'datetime64[ns]', 'date_meas': 'datetime64[ns]',
+        'date_survey': 'datetime64[ns]', 
+        'date_meas': 'datetime64[ns]',
         'site_id': str, 'hardware_id': str,
         }
 

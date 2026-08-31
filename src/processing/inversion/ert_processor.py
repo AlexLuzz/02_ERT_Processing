@@ -180,7 +180,7 @@ class ERTProcessor(ProjectBase):
             res = self.run_inversion(df_work, inv_params=params, 
                                      inversion_type=inversion_type, 
                                      save_all_iterations=save_all_iterations,
-                                     save_to_disk=False)
+                                     save_to_disk=True)
             all_results[f"run_{i}"] = res
             
         # --- AGGREGATED SAVE LOGIC ---

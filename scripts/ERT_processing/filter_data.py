@@ -3,6 +3,7 @@ from src.loaders.ert_loader import ERTLoader
 from src.loaders.ert_loading_tools import load_geometry
 from src.processing.data.data_preparator import DataPreparator
 from src.visualization.single_filtrated_report import FiltratedDataReport
+import pandas as pd
 
 if __name__ == "__main__":
     paths = ProjectPaths(user='AQ96560') 
@@ -13,15 +14,21 @@ if __name__ == "__main__":
                                                           "projection": {"type": "best_fit", "output_axis": "X"}})
     loader = ERTLoader(site_id="MCM_GEO", elec_pos=geom)
     dfs = loader.load_sas4000(source=paths.MCM_SAS4000_GEO / "MCM_GEO_DD_DDrecip.AMP")
+
+    dfs.to_csv(paths.OUTPUT_DIR / 'raw_df.csv')
     
     single_df_raw = dfs[dfs['date_survey'] == dfs['date_survey'].iloc[0]].copy()
     
     # 2. Filter Data
     preparator = DataPreparator(memory=True)
-    single_df_clean = preparator.filter_standard_survey(single_df_raw, 
-                                                        min_v=0.2, 
-                                                        max_err_stk=15.0,
-                                                        max_err_rec=30)
+    thresholds = {
+        "Vmn (mV)": {"min": 0.1},
+        "R (Ohm)": {"min": 0.01},
+        "err_stk (%)": {"max": 40.0},
+        "err_rec (%)": {"max": 40.0},
+    }
+
+    single_df_clean = preparator.filter_standard_survey(single_df_raw, thresholds)
     preparator.save(single_df_clean, paths.OUTPUT_DIR / "MCM_GEO" / "clean_DD_df", {})
 
     # 3. Report
