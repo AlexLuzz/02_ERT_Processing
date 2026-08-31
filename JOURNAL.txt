@@ -4,7 +4,7 @@
     - Worked on ERTProcessor to make it usable, notable data saving
     - IMPORTANT : saving mesh rely on pygimli, due to long paths (oneDrive) there's a silent crash
       that can be bypassed with a tempfile (see safe_mesh_save)
-
+    - Big rework on ERTProcessor, not bad now and working. 
 
 2026-08-26
 - Improved / corrected the weather plotting logic : 
@@ -20,7 +20,7 @@
 - Quick update on the function load_geometry to allow for a projection on X/Y coordinates, need to improve test functions
 
 2026-08-24
-- Lost 1h30 at home due to matplotlib silent crash, due to install with conda-forge => use pip only!
+- Lost 1h30 at home due to matplotlib silent crash, to avoid it DO NOT INSTALL with conda-forge => use pip only!
 - Visualization :  report logic really advanced a lot, it starts to be good, 
 - doc : 
 

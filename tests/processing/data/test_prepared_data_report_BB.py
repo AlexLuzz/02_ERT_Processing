@@ -1,7 +1,7 @@
 from src.loaders.ert_loader import ERTLoader
 from src.processing.data.data_preparator import DataPreparator
 from config.paths import ProjectPaths
-from src.visualization.raw_data_report import RawDataReport
+from src.visualization.raw_tlert_report import RawTLERTReport
 
 if __name__ == "__main__":
     paths = ProjectPaths(user='alexi') 
@@ -13,7 +13,7 @@ if __name__ == "__main__":
 
     output_filepath = paths.VISUALIZATION_DIR / "BB_Site" / "raw_data_results_filter.pdf"
 
-    RawDataReport.print(
+    RawTLERTReport.print(
         df=dfs,
         df_pos=loader.elec_pos,
         filepath=output_filepath,

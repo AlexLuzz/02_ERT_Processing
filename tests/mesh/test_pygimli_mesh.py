@@ -1,10 +1,8 @@
-from src.mesh.pygimli_mesh_tools import build_grid_mesh, build_unstructured_mesh
+from src.mesh.pygimli_mesh_tools import build_grid_mesh, build_unstructured_mesh, safe_mesh_save
 from src.visualization.basic_plotting import plot_array_on_mesh, extract_polygons, plot_electrodes
 import matplotlib.pyplot as plt
-from src.loaders.loading_tools import load_geometry
+from src.loaders.ert_loading_tools import load_geometry
 from config.paths import ProjectPaths
-import gmsh
-import pygimli as pg
 
 def test_build_grid_mesh():
     grid = build_grid_mesh(x_min=0, x_max=10, y_min=-10)
@@ -31,27 +29,10 @@ def test_build_MCM_GEO():
     plot_electrodes(bb_geom, ax)
     print(f"Mesh has {mesh.cellCount()} cells and {mesh.nodeCount()} nodes.")
 
-def safe_mesh_save(mesh, target_path):
-    """
-    Saves a PyGIMLi mesh by bypassing Windows/C++ long path limits.
-    """
-    import shutil
-    import tempfile
-    from pathlib import Path
-    target = Path(target_path)
-    
-    # 1. Generate a short temporary file path (e.g., C:/Users/name/AppData/Local/Temp/MCM_MONO2M.bms)
-    temp_dir = Path(tempfile.gettempdir())
-    short_temp_path = temp_dir / target.name
-    
-    # 2. Let PyGIMLi save to the short path
-    mesh.save(str(short_temp_path.as_posix()))
-    
-    # 3. Create your deep target directories if they don't exist
-    target.parent.mkdir(parents=True, exist_ok=True)
-    
-    # 4. Let Python move it to the deep OneDrive folder
-    shutil.move(str(short_temp_path), str(target))
+    mesh_path = paths.OUTPUT_DIR / 'MCM_GEO_9247cells.bms'
+
+    safe_mesh_save(mesh, mesh_path)
+
 
 def test_build_MCM_M2m():
     paths = ProjectPaths(user='alexi')            
@@ -74,7 +55,7 @@ def test_build_MCM_M2m():
 
 if __name__ == "__main__":
     #test_build_grid_mesh()
-    #test_build_MCM_GEO()
-    test_build_MCM_M2m()
+    test_build_MCM_GEO()
+    #test_build_MCM_M2m()
     plt.show()
 

@@ -19,16 +19,8 @@ def build_ert_container(df_survey: pd.DataFrame, geom_df: pd.DataFrame, default_
     
     data['r'] = df_survey['R (Ohm)'].astype(float).values
     
-    # K-Value RMSE Validation
-    pygimli_k = ert.createGeometricFactors(data)
-    if 'k (m)' in df_survey.columns and not df_survey['k (m)'].isna().all():
-        df_k = df_survey['k (m)'].astype(float).values
-        rmse_k = np.sqrt(np.mean((pygimli_k - df_k)**2))
-        print(f"Geometric factor (k) check - RMSE vs PyGIMLi: {rmse_k:.4f}")
-        data['k'] = df_k 
-    else:
-        data['k'] = pygimli_k
-        
+    data['k'] = ert.createGeometricFactors(data)
+
     if 'rhoa (Ohm.m)' in df_survey.columns and not df_survey['rhoa (Ohm.m)'].isna().all():
         data['rhoa'] = df_survey['rhoa (Ohm.m)'].astype(float).values
     else:

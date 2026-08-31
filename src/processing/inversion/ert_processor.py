@@ -85,7 +85,7 @@ class ERTProcessor(ProjectBase):
             model = mgr.invert(mesh=self.mesh, **step_params)
             current_start_model = model
             
-            res['times'].append(str(item['time']))
+            res['times'].append(pd.to_datetime(item['time'], errors='coerce').strftime('%Y-%m-%d %H:%M:%S'))
             res['models'].append(np.array(model))
             res['responses'].append(np.array(mgr.inv.response))
             res['chi2'].append(mgr.inv.chi2())
@@ -102,52 +102,39 @@ class ERTProcessor(ProjectBase):
         res['models'] = np.vstack(res['models'])
         res['responses'] = np.vstack(res['responses'])
 
-        # 1. Generate the absolute target path first
-        target_path = self.folder_path / self.sim_name / f"{run_id}_results.pkl"
-
-        # 2. Update the CSV ledger using the newly generated filename
-        self._update_registry(run_id, run_start_time, inversion_type, inv_params, res, total_iterations, target_path.name)
-
-        # 3. Save the paraDomain mesh natively and log it in the config
-        import os
-        import json
-        
+        # 1. Generate core paths
         mesh_filename = f"{run_id}_paraDomain.bms"
-        mesh_path_str = str(self.folder_path / self.sim_name / mesh_filename).replace('\\', '/')
+        h5_path = self.folder_path / self.sim_name / f"{run_id}_results.h5"
+        csv_path = self.folder_path / self.sim_name / f"{run_id}_metrics.csv"
         
-        # Package varying-shaped arrays into a DataFrame (perfect for Parquet)
-        df_dict = {
+        # 2. Save Mesh natively (Using safe_mesh_save to avoid C++ path bugs)
+        mesh_path = self.folder_path / self.sim_name / mesh_filename
+        self.safe_mesh_save(self.mesh, mesh_path)
+
+        # 3. Update Registry CSV
+        self._update_registry(run_id, run_start_time, inversion_type, inv_params, res, total_iterations, h5_path.name)
+        
+        config = {"run_id": run_id, "inversion_type": inversion_type, "params": inv_params, "mesh_file": mesh_filename}
+
+        # 4. Save Heavy Arrays to HDF5
+        h5_data = {
+            'times': res['times'],
+            'models': res['models']
+        }
+        self.save(data=h5_data, file_path=h5_path, metadata=config)
+        
+        # 5. Save 1D Metrics to Excel-Friendly CSV
+        csv_dict = {
             'time': res['times'],
             'chi2': res['chi2'],
             'rms': res['rms'],
-            'model': list(res['models']),       # Converts 2D array to a list of 1D arrays
-            'response': list(res['responses'])  # Converts 2D array to a list of 1D arrays
+            'response': [",".join(map(str, r)) for r in res['responses']]
         }
-        
         if 'iteration_history' in res:
-            # Comma-separated for chi2
-            df_dict['chi2_history'] = [",".join(map(str, h['chi2_history'])) for h in res['iteration_history']]
+            csv_dict['chi2_history'] = [",".join(map(str, h['chi2_history'])) for h in res['iteration_history']]
             
-            # For model history: commas separate values, pipes (|) separate iterations
-            df_dict['model_history'] = [
-                "|".join([",".join(map(str, m_iter)) for m_iter in h['model_history']]) 
-                for h in res['iteration_history']
-            ]
-            
-        df_results = pd.DataFrame(df_dict)
+        self.save(data=pd.DataFrame(csv_dict), file_path=csv_path, metadata=config)
         
-        # Switch the target path from .pkl to .parquet
-        target_path = target_path.with_suffix('.csv')
-        
-        config = {
-            "run_id": run_id, 
-            "inversion_type": inversion_type, 
-            "params": inv_params,
-            "mesh_file": mesh_filename
-        }
-        
-        self.save(data=df_results, file_path=target_path, metadata=config)
-        self.mesh.save(mesh_path_str)
         return res
 
     def _update_registry(self, run_id, start_time, inv_type, params, res, total_iters, filename):

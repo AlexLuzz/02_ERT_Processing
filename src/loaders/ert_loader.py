@@ -2,7 +2,7 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 import re
-from src.loaders.loading_tools import scan_header, split_sas4000_surveys, compute_geometric_factors, load_geometry
+from src.loaders.ert_loading_tools import *
 from src.core.base import ProjectBase
 import numpy as np
 
@@ -12,50 +12,31 @@ class ERTLoader(ProjectBase):
     def __init__(
         self,
         site_id: str,
-        elec_pos_path: Path | str | None = None,
-        elec_pos_params: dict | None = None,
-        absolute_pos: bool = True,
-        inverse_order: bool = False,
-    ):
+        elec_pos: pd.DataFrame,
+        ):
         super().__init__()
         self.site_id = site_id
-        self.elec_pos = None
-
-        if elec_pos_path is not None:
-            self.logger.info(f"Loading geometry file: {elec_pos_path}")
-            self.elec_pos = load_geometry(elec_pos_path, elec_pos_params)
-            self.logger.info(
-                f"Initialized ERTLoader for site: '{self.site_id}' with"
-                f" {len(self.elec_pos)} electrodes loaded."
-            )
-        else:
-            self.logger.info(
-                f"Initialized ERTLoader for site: '{self.site_id}' (No geometry"
-                " bound)."
-            )
         
-    # Standard columns mapped to their expected pandas data types
-    ERT_COLS = {
-      'A': 'Int64',
-      'B': 'Int64',
-      'M': 'Int64',
-      'N': 'Int64',
-      'R (Ohm)': float,
-      'Vmn (mV)': float,
-      'Iab (mA)': float,
-      'Tx (V)': float,
-      'R_ab (kOhm)': float,
-      'k (m)': float,
-      'rhoa (Ohm.m)': float,
-      'err_stk (%)': float,
-      'err_rec (%)': float,
-      'date_survey': 'datetime64[ns]',
-      'date_meas': 'datetime64[ns]',
-      'site_id': str,
-      'hardware_id': str,
-      'survey_id': str,
-    }
-    
+        if elec_pos is None or elec_pos.empty:
+            raise ValueError("Electrode positions (elec_pos) are strictly required.")
+        self.elec_pos = elec_pos
+
+        self.raw_data = pd.DataFrame()
+        self.data = pd.DataFrame()
+
+        self.logger.info(
+            f"Initialized ERTLoader for site: '{self.site_id}' with"
+            f" {len(self.elec_pos)} electrodes loaded."
+        )
+        
+        self.ERT_COLS = {
+        'A': 'Int64', 'B': 'Int64', 'M': 'Int64', 'N': 'Int64',
+        'R (Ohm)': float, 'Vmn (mV)': float, 'Iab (mA)': float, 'Tx (V)': float,
+        'R_ab (kOhm)': float, 'k (m)': float, 'rhoa (Ohm.m)': float,
+        'err_stk (%)': float,
+        'date_survey': 'datetime64[ns]', 'date_meas': 'datetime64[ns]',
+        'site_id': str, 'hardware_id': str,
+        }
 
     def _resolve_files(self, source: Path | str | list, pattern: str = "*") -> list[Path]:
         if isinstance(source, list):
@@ -66,167 +47,158 @@ class ERTLoader(ProjectBase):
         if source_path.is_dir(): return list(source_path.glob(pattern))
         if source_path.parent.is_dir(): return list(source_path.parent.glob(source_path.name))
         
-        self.logger.error(f"Path does not exist: {source_path}")
-        return []
+        raise FileNotFoundError(f"Path does not exist: {source_path}")
 
-    def _finalize_standardization(
-        self, 
-        df: pd.DataFrame, 
-        hardware_id: str, 
-        filepath_stem: str, 
-        survey_date, 
-    ) -> pd.DataFrame:
-        """
-        Centralized method to add identifiers, compute geometric factors & rhoa, 
-        hard-cast types, apply whitelist, and log survey statistics.
-        """
-        # Add Identifiers & Dates
+    def finalize_standardization(self) -> pd.DataFrame:
+        df = self.raw_data.copy()
+        self.logger.info("--- Starting Global Standardization ---")
+
+        # 1. Apply class-level identifiers and order
         df['site_id'] = self.site_id
-        df['hardware_id'] = hardware_id
-        df['survey_id'] = f"{self.site_id}_{filepath_stem}"
-        df['date_survey'] = survey_date
+        df = df.sort_values(by='date_meas').reset_index(drop=True)
 
-        # Geometric factor and apparent resistivity computation
-        if self.elec_pos is not None:
-            df = compute_geometric_factors(df, self.elec_pos)
-            df['rhoa (Ohm.m)'] = df['k (m)'] * df['R (Ohm)']
-            self.logger.info(f" -> Computed k and rhoa using {len(self.elec_pos)} electrode positions.")
-        elif 'k (m)' in df.columns and 'R (Ohm)' in df.columns:
-            df['rhoa (Ohm.m)'] = df['k (m)'] * df['R (Ohm)']
-            self.logger.info(f" -> Computed rhoa using existing k values.")
+        # 2. Geometric factors & rhoa (elec_pos is guaranteed to exist)
+        df = compute_geometric_factors(df, self.elec_pos)
+        df['rhoa (Ohm.m)'] = df['k (m)'] * df['R (Ohm)']
 
-        # Ensure standard columns exist and HARD-CAST types
-        for col, dtype in self.ERT_COLS.items():
+        # 3. Reciprocal Masking & Error Processing
+        df['reciprocal'] = get_reciprocal_mask_vectorized(df)
+        df = process_reciprocals(df)
+
+        # 4. Type Casting and Missing Column Logging
+        final_types = self.ERT_COLS.copy()
+        final_types['reciprocal'] = bool
+        final_types['err_rec (%)'] = float
+        
+        for col, dtype in final_types.items():
             if col not in df.columns:
+                self.logger.warning(f"Column '{col}' is missing. Padding with NAs.")
                 df[col] = pd.NA
                 
             if dtype == 'datetime64[ns]':
-                df[col] = pd.to_datetime(df[col], errors='coerce')
+                df[col] = pd.to_datetime(df[col]) 
             elif dtype == str:
-                df[col] = df[col].astype(str).replace({'nan': pd.NA, '<NA>': pd.NA})
+                df[col] = df[col].astype(str).replace({'nan': pd.NA, '<NA>': pd.NA, 'None': pd.NA})
             else:
-                df[col] = pd.to_numeric(df[col], errors='coerce').astype(dtype)
+                df[col] = pd.to_numeric(df[col]).astype(dtype)
 
-        # STRICT WHITELIST
-        df_final = df[list(self.ERT_COLS.keys())].copy()
-
-        # STATS EXTRACTION & LOGGING
-        num_meas = len(df_final)
+        # 5. Whitelist
+        df = df[list(final_types.keys())]
+        self.data = df
         
-        # Electrode usage and missing sequence detection
-        elecs = pd.unique(df_final[['A', 'B', 'M', 'N']].values.ravel())
-        elecs = sorted([int(e) for e in elecs if pd.notna(e)])
+        # 6. Global Stat Extraction (Fails loud if ERT fundamentals are missing)
+        num_meas = len(df)
+        recip_count = df['reciprocal'].sum()
+        elecs = sorted([int(e) for e in pd.unique(df[['A', 'B', 'M', 'N']].values.ravel()) if pd.notna(e)])
+        elec_log = f"{len(elecs)} total (Range: {min(elecs)} to {max(elecs)})"
         
-        if elecs:
-            min_e, max_e = min(elecs), max(elecs)
-            full_expected_set = set(range(min_e, max_e + 1))
-            missing_elecs = sorted(list(full_expected_set - set(elecs)))
-            missing_str = f" | Missing: {missing_elecs}" if missing_elecs else " | No gaps"
-            elec_log = f"{len(elecs)} total (Range: {min_e} to {max_e}{missing_str})"
-        else:
-            elec_log = "0 detected"
-
-        # Dates and duration
-        start_date = df_final['date_survey'].min()
-        end_date = df_final['date_survey'].max()
-        if not df_final['date_meas'].isna().all():
-            duration = df_final['date_meas'].max() - df_final['date_meas'].min()
-            duration_str = str(duration).split('.')[0]
-        else:
-            duration_str = "N/A"
-
-        # Apparent resistivity checks
-        rhoa_valid = df_final['rhoa (Ohm.m)'].dropna()
-        if not rhoa_valid.empty:
-            neg_count = (rhoa_valid < 0).sum()
-            rhoa_stats = f"Min: {rhoa_valid.min():.2f}, Max: {rhoa_valid.max():.2f} Ohm.m (Negatives: {neg_count})"
-        else:
-            rhoa_stats = "Not computed"
-
-        self.logger.info(f"--- Standardized: {self.site_id}_{filepath_stem} ---")
-        self.logger.info(f"  Measurements : {num_meas}")
+        rhoa_valid = df['rhoa (Ohm.m)'].dropna()
+        rhoa_stats = f"Min: {rhoa_valid.min():.2f}, Max: {rhoa_valid.max():.2f}"
+        
+        self.logger.info(f"  Total Meas   : {num_meas} ({recip_count} Reciprocals)")
         self.logger.info(f"  Electrodes   : {elec_log}")
-        self.logger.info(f"  Survey Dates : {start_date} to {end_date}")
-        self.logger.info(f"  Duration     : {duration_str}")
         self.logger.info(f"  rhoa stats   : {rhoa_stats}")
-        self.logger.info(f"------------------------------------------------")
-
-        return df_final
-
-    def load_prime(self, source: Path | str | list, pattern: str = "*.tab") -> pd.DataFrame:
-        files = self._resolve_files(source, pattern)
-        dfs = []
+        self.logger.info("---------------------------------------")
         
+        return self.data
+
+    def load_prime(self, source: Path | str | list, pattern: str = "*.tab", standardize: bool = True) -> pd.DataFrame:
+        files = self._resolve_files(source, pattern)
+        if not files:
+            raise FileNotFoundError(f"No files matching '{pattern}' found in {source}")
+            
+        file_dfs = []
         for filepath in files:
             self.logger.info(f"Loading Prime file: {filepath.name}")
             data_start, metadata = scan_header(filepath, data_start_markers=['pt_line_number:', 'pt_calc_res:'])
             
             start_time_str = metadata.get('set_actual_start_time')
-            survey_date = datetime.strptime(start_time_str, "%Y-%m-%dT%H:%M:%S") if start_time_str else pd.NA
+            if not start_time_str:
+                raise ValueError(f"No start time metadata extracted in {filepath.name}")
                     
             df = pd.read_csv(filepath, skiprows=data_start, sep=r'\s+')
             df.columns = df.columns.str.strip()
             
             df = df.rename(columns={
                 'pt_c1_no:': 'A', 'pt_c2_no:': 'B', 'pt_p1_no:': 'M', 'pt_p2_no:': 'N',
-                'pt_calc_res:': 'R (Ohm)', 'pt_meas_voltage_mean:': 'Vmn (mV)', 'pt_meas_current_mag:': 'Iab (mA)', 
-                'pt_meas_applied_voltage:': 'Tx (V)', 'pt_meas_contact_resistance:': 'R_ab (kOhm)', 
-                'pt_calc_res_error:': 'err_stk (%)', 'pt_time:': 'date_meas'
+                'pt_calc_res:': 'R (Ohm)', 'pt_meas_voltage_mean:': 'Vmn (mV)', 
+                'pt_meas_current_mag:': 'Iab (mA)', 'pt_meas_applied_voltage:': 'Tx (V)', 
+                'pt_meas_contact_resistance:': 'R_ab (kOhm)', 'pt_calc_res_error:': 'err_stk (%)', 
+                'pt_time:': 'date_meas'
             })
             
-            df = self._finalize_standardization(df, 'Prime', filepath.stem, survey_date)
-            dfs.append(df)
-            
-        return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+            df['hardware_id'] = 'Prime'
+            df['date_survey'] = datetime.strptime(start_time_str, "%Y-%m-%dT%H:%M:%S")
 
-    def load_sas4000(self, source: Path | str | list, pattern: str = "*.AMP") -> pd.DataFrame:
+            file_dfs.append(df)
+
+        new_data = pd.concat(file_dfs, ignore_index=True)
+        self.raw_data = new_data if self.raw_data.empty else pd.concat([self.raw_data, new_data], ignore_index=True)
+
+        if standardize:
+            self.finalize_standardization()
+            
+        return self.data
+
+    def load_sas4000(self, source: Path | str | list, pattern: str = "*.AMP", standardize: bool = True) -> pd.DataFrame:
         files = self._resolve_files(source, pattern)
-        dfs = []
-        
+        if not files:
+            raise FileNotFoundError(f"No files matching '{pattern}' found in {source}")
+            
+        file_dfs = []
         for filepath in files:
             self.logger.info(f"Loading SAS4000 file: {filepath.name}")
             data_start, metadata = scan_header(filepath, data_start_markers=['No.', 'A(x)'])
             
             start_time_str = metadata.get('Date & Time')
-            survey_date = datetime.strptime(start_time_str, "%d/%m/%Y %H:%M:%S") if start_time_str else pd.NA
+            if not start_time_str:
+                raise ValueError(f"No 'Date & Time' metadata extracted in {filepath.name}")
+            survey_date = datetime.strptime(start_time_str, "%d/%m/%Y %H:%M:%S")
                     
             df = pd.read_csv(filepath, skiprows=data_start, sep=r'\s+')
             
-            if 'Voltage(V)' in df.columns:
-                df['Voltage(V)'] = df['Voltage(V)'] * 1000.0
-                self.logger.info(f" -> Converted Voltage(V) to mV for {filepath.name}")
+            if 'Voltage(V)' not in df.columns:
+                raise KeyError(f"'Voltage(V)' column is missing in {filepath.name}")
+            
+            df['Voltage(V)'] = df['Voltage(V)'] * 1000.0
+            self.logger.info(f" -> Converted Voltage(V) to mV for {filepath.name}")
             
             df = df.rename(columns={
                 'A(x)': 'A', 'B(x)': 'B', 'M(x)': 'M', 'N(x)': 'N',
-                'Res.(ohm)': 'R (Ohm)', 'Voltage(V)': 'Vmn (mV)', 'I(mA)': 'Iab (mA)', 
-                'Error(%)': 'err_stk (%)'
+                'Res.(ohm)': 'R (Ohm)', 'Voltage(V)': 'Vmn (mV)', 'I(mA)': 'Iab (mA)', 'Error(%)': 'err_stk (%)'
             })
             
-            df['err_stk (%)'] = pd.to_numeric(df['err_stk (%)'].replace('1.#QNAN0', pd.NA), errors='coerce')
+            df['err_stk (%)'] = pd.to_numeric(df['err_stk (%)'].replace('1.#QNAN0', np.nan))
             df = df[~df['A'].astype(str).isin(['32767', '32767.0'])]
-            
-            # SAS4000 specific time logic (must happen before finalizer casts types)
-            df['date_meas'] = survey_date + pd.to_timedelta(pd.to_numeric(df['Time'], errors='coerce'), unit='s')
+            df['date_meas'] = survey_date + pd.to_timedelta(pd.to_numeric(df['Time']), unit='s')
 
-            # Apply splitting before finalization to update survey_id and date_survey
-            df['survey_id'] = f"{self.site_id}_{filepath.stem}"
             df = split_sas4000_surveys(df, time_gap_hours=0.25)
+            df['hardware_id'] = 'SAS4000'
 
-            df = self._finalize_standardization(df, 'SAS4000', filepath.stem, survey_date)
-            dfs.append(df)
+            file_dfs.append(df)
+
+        new_data = pd.concat(file_dfs, ignore_index=True)
+        self.raw_data = new_data if self.raw_data.empty else pd.concat([self.raw_data, new_data], ignore_index=True)
+
+        if standardize:
+            self.finalize_standardization()
             
-        return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+        return self.data
 
-    def load_ohmpi(self, source: Path | str | list, pattern: str = "*.csv") -> pd.DataFrame:
+    def load_ohmpi(self, source: Path | str | list, pattern: str = "*.csv", standardize: bool = True) -> pd.DataFrame:
         files = self._resolve_files(source, pattern)
-        dfs = []
-        
+        if not files:
+            raise FileNotFoundError(f"No files matching '{pattern}' found in {source}")
+            
+        file_dfs = []
         for filepath in files:
             self.logger.info(f"Loading OhmPi file: {filepath.name}")
             df = pd.read_csv(filepath, sep=',')
             
             date_match = re.search(r'\d{8}T\d{6}', filepath.stem)
-            survey_date = datetime.strptime(date_match.group(), "%Y%m%dT%H%M%S") if date_match else pd.NA
+            if not date_match:
+                raise ValueError(f"Cannot extract survey date from filename {filepath.name}")
+            df['date_survey'] = datetime.strptime(date_match.group(), "%Y%m%dT%H%M%S")
 
             df = df.rename(columns={
                 'R [Ohm]': 'R (Ohm)', 'Vmn [mV]': 'Vmn (mV)', 'I [mA]': 'Iab (mA)',
@@ -234,8 +206,14 @@ class ERTLoader(ProjectBase):
                 'time': 'date_meas', 'R_std [%]': 'err_stk (%)', 
             })
             
-            df = self._finalize_standardization(df, 'OhmPi', filepath.stem, survey_date)
-            dfs.append(df)
+            df['hardware_id'] = 'OhmPi'
             
-        return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+            file_dfs.append(df)
 
+        new_data = pd.concat(file_dfs, ignore_index=True)
+        self.raw_data = new_data if self.raw_data.empty else pd.concat([self.raw_data, new_data], ignore_index=True)
+
+        if standardize:
+            self.finalize_standardization()
+            
+        return self.data

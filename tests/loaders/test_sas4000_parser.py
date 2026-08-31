@@ -1,5 +1,5 @@
 from src.loaders.ert_loader import ERTLoader
-from src.loaders.loading_tools import split_sas4000_surveys
+from src.loaders.ert_loading_tools import split_sas4000_surveys
 from config.paths import ProjectPaths
 
 def run_sas4000_split_tests(paths: ProjectPaths, loader: ERTLoader):

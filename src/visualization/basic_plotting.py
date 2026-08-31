@@ -4,8 +4,6 @@ import matplotlib.dates as mdates
 from matplotlib.collections import LineCollection, PatchCollection
 import pandas as pd
 import numpy as np
-import requests
-from io import StringIO
 
 def format_time_axis(ax):
     """Smart date locator with MM-dd format and 45-degree angle."""
@@ -19,94 +17,33 @@ def format_time_axis(ax):
     for label in ax.get_xticklabels():
         label.set_rotation(45)
         label.set_horizontalalignment('right')
-    
-def plot_electrodes(df, colors=None, projection="xz", ax=None):
-    if ax is None:
-        fig, ax = plt.subplots()
 
-    colors = colors or {}
-    x_col, y_col = ("X", "Z") if projection.lower() == "xz" else ("X", "Y")
+def plot_electrodes(df, ax, elec_numbers=None, **params):
+    """Plot selected electrodes on an existing axis."""
+    show_numbers = params.pop("show_numbers", False)
+    number_every = params.pop("number_every", 4)
 
-    # Plot ALL background electrodes in light grey
-    ax.scatter(df[x_col], df[y_col], c='lightgrey', s=10, zorder=1)
+    if elec_numbers is not None:
+        df = df[df["elec_number"].isin(elec_numbers)]
 
-    # Plot active electrodes in their designated legend colors
-    for color, electrodes in colors.items():
-        mask = df["elec_number"].isin(electrodes)
-        ax.scatter(df.loc[mask, x_col], df.loc[mask, y_col], c=color, s=25, zorder=2)
+    scatter_kwargs = {
+        "s": 10,
+        "color": "darkgrey",
+        "alpha": 0.8,
+        **params}
 
-    # Electrode numbers (every 4th, integers only)
-    for _, row in df.iterrows():
-        elec_num = int(row["elec_number"])
-        if elec_num % 4 == 0:
-            ax.annotate(str(elec_num), (row[x_col], row[y_col]), 
-                        xytext=(0, 3), textcoords="offset points", 
-                        fontsize=6, ha='center', va='bottom')
+    ax.scatter(df["X"], df["Z"], **scatter_kwargs)
 
-    # Apply 1m padding and remove self-explanatory axes
-    ax.set_xlim(df[x_col].min() - 1, df[x_col].max() + 1)
-    ax.set_ylim(df[y_col].min() - 1, df[y_col].max() + 2) # +2 for label clearance
-    ax.set_aspect("equal", adjustable="datalim")
-    ax.axis('off') 
+    if show_numbers:
+        for i, (_, row) in enumerate(df.iterrows()):
+            if i % number_every == 0:
+                ax.annotate(
+                    str(row["elec_number"]),
+                    (row["X"], row["Z"]),
+                    xytext=(4, 4),
+                    textcoords="offset points")
 
     return ax
-
-def fetch_weather_data(start_date, end_date, freq='D', station_id=51157):
-    """
-    Fetches daily weather data from Environment Canada and resamples to desired frequency.
-    
-    Parameters:
-        start_date (str or datetime): Start date.
-        end_date (str or datetime): End date.
-        freq (str): Pandas frequency string (e.g., 'D' for daily, '6h' for 6 hours).
-        station_id (int): Weather station ID. 
-                - For Berlier-Bergman, Laval : 51157 (YUL) 
-                - For MCM, Val d'Or : 71725 (city), 71941 (airport)
-    Returns:
-        pd.DataFrame: Single DataFrame containing date, snow, rain, and temp.
-    """
-    start_date = pd.to_datetime(start_date, errors='coerce')
-    end_date = pd.to_datetime(end_date, errors='coerce')
-
-    def get_daily_data(station, year):
-        url = (
-            "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
-            f"format=csv&stationID={station}&Year={year}&Month=1&Day=1&timeframe=2"
-        )
-        r = requests.get(url, timeout=20)
-        r.raise_for_status()
-        return pd.read_csv(StringIO(r.text))
-
-    # Fetch data across the required years
-    frames = []
-    for y in range(start_date.year, end_date.year + 1):
-        print(f"Fetching {y}...")
-        frames.append(get_daily_data(station_id, y))
-    
-    df = pd.concat(frames, ignore_index=True)
-    df['Date/Time'] = pd.to_datetime(df['Date/Time'])
-
-    # Improved data filtering logic
-    date_mask = (df['Date/Time'] >= start_date) & (df['Date/Time'] <= end_date)
-    filtered_df = df.loc[date_mask].copy()
-
-    # Rename columns for standardisation 
-    filtered_df = filtered_df.rename(columns={
-        'Date/Time': 'date',
-        'Total Snow (cm)': 'snow',
-        'Total Rain (mm)': 'rain',
-        'Mean Temp (°C)': 'temp'
-    })
-
-    # Keep only target columns, handle NaNs, and set index for resampling
-    final_df = filtered_df[['date', 'snow', 'rain', 'temp']].fillna(0)
-    final_df.set_index('date', inplace=True)
-
-    # Resample to the requested frequency (e.g., '6h', 'D')
-    if freq:
-        final_df = final_df.resample(freq).mean().fillna(0)
-
-    return final_df.reset_index()
 
 def plot_weather_data(weather_df, start_date, end_date, ax=None):
     if ax is None:
@@ -214,24 +151,3 @@ def plot_array_on_mesh(polygons, array=None, ax=None, **kwargs):
     ax.set_ylabel('Z (m)')
     
     return ax, collection
-
-def plot_electrodes(df, ax, **params):
-    """Plot electrodes on an existing axis."""
-    show_numbers = params.pop("show_numbers", False)
-    number_every = params.pop("number_every", 4)
-
-    scatter_kwargs = {"s": 40, "color": "black", "alpha": 1.0,
-        **params}
-
-    ax.scatter(df["X"], df["Z"], **scatter_kwargs)
-
-    if show_numbers:
-        for i, (_, row) in enumerate(df.iterrows()):
-            if i % number_every == 0:
-                ax.annotate(
-                    str(row["elec_number"]),
-                    (row["X"], row["Z"]),
-                    xytext=(4, 4),
-                    textcoords="offset points")
-
-    return ax

@@ -1,4 +1,4 @@
-from src.loaders.loading_tools import scan_header
+from src.loaders.ert_loading_tools import scan_header
 from config.paths import ProjectPaths
 
 def run_header_tests(paths: ProjectPaths):

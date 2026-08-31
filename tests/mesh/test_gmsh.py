@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 from src.mesh.gmesh_tools import build_gmsh_mesh 
 from src.visualization.basic_plotting import plot_array_on_mesh, extract_polygons, plot_electrodes
-from src.loaders.loading_tools import load_geometry
+from src.loaders.ert_loading_tools import load_geometry
 from config.paths import ProjectPaths
 from pygimli.meshtools import readGmsh
 
