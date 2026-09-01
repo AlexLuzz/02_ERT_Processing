@@ -3,6 +3,7 @@ from src.visualization.basic_plotting import plot_array_on_mesh, extract_polygon
 import matplotlib.pyplot as plt
 from src.loaders.ert_loading_tools import load_geometry
 from config.paths import ProjectPaths
+import pygimli as pg
 
 def test_build_grid_mesh():
     grid = build_grid_mesh(x_min=0, x_max=10, y_min=-10)
@@ -35,27 +36,26 @@ def test_build_MCM_GEO():
 
 
 def test_build_MCM_M2m():
-    paths = ProjectPaths(user='alexi')            
-    bb_geom = load_geometry(paths.MCM_MONO2M_ELECS_POS,
-                            params={"absolute_pos": True, 
-                                    "inverse_order": False,
-                                    "projection": {"type": "distance", "output_axis": "X"}})
+    paths = ProjectPaths(user='AQ96560')            
+    geom_mono2m = load_geometry(paths.MCM_MONO2M_ELECS_POS_TRUE, params={"absolute_pos": True, 
+                                                                  'inverse_order': False,
+                                                                  "projection": {"type": "distance", "output_axis": "X"}})
 
-    mesh = build_unstructured_mesh(bb_geom, area=2, quality=34)
+    mesh = build_unstructured_mesh(geom_mono2m, area=1, quality=34)
     mesh_polygons = extract_polygons(mesh)
     ax, coll = plot_array_on_mesh(mesh_polygons, edgecolor='black', alpha=0.2)
 
     mesh_path_str = str(paths.OUTPUT_DIR / 'MCM_MONO2M.bms').replace('\\', '/')
     safe_mesh_save(mesh, mesh_path_str)
     
-    #plot_electrodes(bb_geom, ax)
-    #ax, cb = pg.show(mesh, markers=True, showMesh=True)
-    #ax.plot(bb_geom['X'].values, bb_geom['Z'].values, "mx")
+    plot_electrodes(geom_mono2m, ax)
+    ax, cb = pg.show(mesh, markers=True, showMesh=True)
+    ax.plot(geom_mono2m['X'].values, geom_mono2m['Z'].values, "mx")
     print(f"Mesh has {mesh.cellCount()} cells and {mesh.nodeCount()} nodes.")
 
 if __name__ == "__main__":
     #test_build_grid_mesh()
-    test_build_MCM_GEO()
-    #test_build_MCM_M2m()
+    #test_build_MCM_GEO()
+    test_build_MCM_M2m()
     plt.show()
 

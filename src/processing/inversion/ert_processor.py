@@ -174,7 +174,7 @@ class ERTProcessor(ProjectBase):
         
         for i, params in enumerate(permutations):
             self.logger.info(f"--- Ensemble {i+1}/{len(permutations)} | Params: {params} ---")
-            df_work = self.set_errors(df, 10)
+            df_work = self.set_errors(df, 5)
             
             # SUPPRESS individual saves
             res = self.run_inversion(df_work, inv_params=params, 

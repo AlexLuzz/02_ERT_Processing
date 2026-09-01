@@ -231,7 +231,7 @@
 - *Third-party:* `numpy, pandas, pygimli`
 
 **Functions:**
-- `def build_ert_container(df_survey, geom_df, default_error)` — *Converts a standardized Pandas DataFrame for a SINGLE survey into a PyGIMLi DataContainerERT[cite: 7].*
+- `def build_ert_container(df_survey, geom_df, default_error)` — *Converts a standardized Pandas DataFrame for a SINGLE survey into a PyGIMLi DataContainerERT.*
 - `def build_ert_containers_timeseries(df, geom_df, date_col)` — *Wrapper that turns a multi-survey dataframe into a list of PyGIMLi containers. *
 - `def get_common_configs(df, config_cols, date_col)` — *Identifies electrode configurations that exist across ALL surveys.*
 

@@ -5,7 +5,7 @@ from pygimli.physics import ert
 
 def build_ert_container(df_survey: pd.DataFrame, geom_df: pd.DataFrame, default_error: float = 0.05) -> pg.DataContainerERT:
     """
-    Converts a standardized Pandas DataFrame for a SINGLE survey into a PyGIMLi DataContainerERT[cite: 7].
+    Converts a standardized Pandas DataFrame for a SINGLE survey into a PyGIMLi DataContainerERT.
     """
     geom_df = geom_df.sort_values('elec_number')
     sensor_positions = geom_df[['X', 'Z']].values

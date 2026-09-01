@@ -4,7 +4,6 @@ from src.mesh.pygimli_mesh_tools import safe_mesh_load
 from src.processing.inversion.ert_processor import ERTProcessor
 from src.visualization.ensemble_survey_report import EnsembleSurveyReport
 from src.loaders.ert_loader import ERTLoader
-from src.processing.data.data_preparator import DataPreparator
 
 if __name__ == "__main__":
     paths = ProjectPaths(user='AQ96560') 
@@ -15,14 +14,10 @@ if __name__ == "__main__":
     mesh = safe_mesh_load(paths.OUTPUT_DIR / 'MCM_MONO2M.bms')
 
     loader = ERTLoader(site_id="MCM_MONO2M", elec_pos=geom)
-
-    geom = load_geometry(paths.MCM_MONO2M_ELECS_POS_TRUE, params={"absolute_pos": True, 
-                                                              'inverse_order': False,
-                                                              "projection": {"type": "distance", "output_axis": "X"}})
-    loader = ERTLoader(site_id="MCM_MONO2M", elec_pos=geom)
     df = loader.load_prime(source=paths.DATA_DIR / "9011_BGS_2026-09-01_040052.tab")
 
-    df = df[df['reciprocal'] == False].copy()               
+    df = df[df['reciprocal'] == False].copy()
+
     report_dir = paths.OUTPUT_DIR / "MCM_MONO2M"
     processor = ERTProcessor(folder_path=report_dir, 
                              mesh=mesh, electrode_positions=geom, simulation_name="param_test")
@@ -50,5 +45,3 @@ if __name__ == "__main__":
             mesh=mesh,
             param_grid=params
         )
-
-    print(f"✅ Ensemble grid report saved to {pdf_path.name}")

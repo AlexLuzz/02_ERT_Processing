@@ -129,7 +129,7 @@
 │   │   │   │           └── def run_ensemble(self, df, param_grid, inversion_type, save_all_iterations)
 │   │   │   └── pygimli_tools.py
 │   │   │           └── def build_ert_container(df_survey, geom_df, default_error)
-│   │   │               """Converts a standardized Pandas DataFrame for a SINGLE survey into a PyGIMLi DataContainerERT[cite: 7]."""
+│   │   │               """Converts a standardized Pandas DataFrame for a SINGLE survey into a PyGIMLi DataContainerERT."""
 │   │   │           └── def build_ert_containers_timeseries(df, geom_df, date_col)
 │   │   │               """Wrapper that turns a multi-survey dataframe into a list of PyGIMLi containers. """
 │   │   │           └── def get_common_configs(df, config_cols, date_col)

@@ -1,16 +1,13 @@
 ## 🔄 In Progress
 
     ## High Priority 🔥
-    - [/] Check recip computation with Prime surveys, SAS4000 is okay (tested with MCM GEO)
-    - [ ] Implement recip error analysis to compute error func
-    - [ ] Clean tests / scripts folder, too many scripts, update the tests they're outdated
     - [ ] Visualization classes are getting out of hand
-    - [ ] Improve logic ERTProcessor path management, it always creates new folders it's bothersome
+    - [ ] Implement recip error analysis to compute error func, mandatory for MCM_GEO
 
     ## Medium Priority ⚡
     - [ ] Make fetch_weather_data zork for MCM
-    - [ ] Improve ProjectPaths folder names
     - [ ] raw_data_report : First page is useless
+    - [ ] update the tests they're outdated
     
     ## Side-side project that will never see the light
     - [ ] Make a real pytest based worflow ? need to document
@@ -21,6 +18,11 @@
     - [ ] Documentation ; check obsidian and update
 
 ## ✅ Completed
+    - [x] 2026-09-01 : Clean tests / scripts folder, too many scripts. I deleted several scripts and started a new worflow
+            -> template scripts and site-specific scripts.
+    - [x] 2026-09-01 : Improve logic ERTProcessor path management, it always creates new folders it's bothersome
+    - [x] 2026-09-01 : Improve ProjectPaths folder names, standardized the naming
+    - [x] 2026-09-01 : Check recip computation with Prime and SAS4000 is okay (tested with MCM GEO and 0901 Prime survey command file 9011)
     - [x] 2026-08-31 : Correct electrode ordering 
     - [x] 2026-08-30 : working, ensemble is running, need to improve saving logic
     - [x] 2026-08-30 : Improve plot_electrodes func (so it can receive colors and stuff)
