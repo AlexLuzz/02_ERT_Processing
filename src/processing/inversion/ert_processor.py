@@ -8,13 +8,15 @@ from src.core.base import ProjectBase
 from src.processing.inversion.pygimli_tools import build_ert_container, build_ert_containers_timeseries
 
 class ERTProcessor(ProjectBase):
-    def __init__(self, output_dir: Path, mesh, electrode_positions):
+    def __init__(self, output_dir: Path, mesh, electrode_positions, df: pd.DataFrame):
         super().__init__(memory=True)
         self.mesh = mesh
         self.elec_pos = electrode_positions
+        self.df = df
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self._log_init_stats()
+        self._compute_paraDomain()
 
     def _log_init_stats(self):
         self.logger.info(f"Processor Initialized. Mesh: {self.mesh.cellCount()} cells.")
@@ -24,25 +26,43 @@ class ERTProcessor(ProjectBase):
         if params is None:
             params = {}
             
-        inv_keys = {'lam', 'zWeight', 'robustData', 'blockyModel', 'maxIter', 'startModel', 'limits'}
-        mgr_keys = {'sr', 'verbose'}
+        # 1. Define the default dictionaries
+        default_inv = {'lam': 10, 'zWeight': 0.7, 'robustData': False, 'blockyModel': False, 'maxIter': 30, 'startModel': None, 'limits': None}
+        default_mgr = {'sr': True, 'verbose': True}
         
-        routed = {'mgr_kwargs': {}, 'inv_kwargs': {}, 'error_param': None}
+        # 2. Pre-fill the routed dictionary with copies of the defaults
+        routed = {
+            'mgr_kwargs': default_mgr.copy(), 
+            'inv_kwargs': default_inv.copy(), 
+            'error_param': None
+        }
         
+        # 3. Overwrite the defaults with any user-provided values
         for k, v in params.items():
-            if k in inv_keys:
+            if k in default_inv:
                 routed['inv_kwargs'][k] = v
-            elif k in mgr_keys:
+            elif k in default_mgr:
                 routed['mgr_kwargs'][k] = v
             elif k == 'error_param':
                 routed['error_param'] = v 
                 
         return routed
 
+    def _compute_paraDomain(self):
+        data = build_ert_container(self.df, self.elec_pos)
+        self.fop = ert.ERTModelling()
+        self.fop.setData(data)
+        self.fop.setMesh(self.mesh)
+        self.paraDomain = self.fop.paraDomain
+
+        # Create forward operator and jacobian
+        #model = np.ones(self.mesh.cellCount())
+        #self.fop.createJacobian(model)
+        #self.jacobian = self.fop.jacobian()
+
     def _setup_manager(self, data, mgr_kwargs: dict):
         """Unlocks the manager for pre-computation adjustments."""
         self.mgr = ert.ERTManager(data, **mgr_kwargs)
-        # Future-proofing: You can inject Jacobian calculations here
 
     def _execute_inversion(self, inv_kwargs: dict, routed_params: dict) -> dict:
         """Core mathematical execution block."""
@@ -62,10 +82,10 @@ class ERTProcessor(ProjectBase):
             'params': routed_params
         }
     
-    def run_single(self, df: pd.DataFrame, params: dict = None) -> dict:
+    def run_single(self, params: dict = None) -> dict:
         routed = self._route_parameters(params)
         
-        container = build_ert_container(df, self.elec_pos, error_param=routed['error_param'])
+        container = build_ert_container(self.df, self.elec_pos, error_param=routed['error_param'])
         self._setup_manager(container, routed['mgr_kwargs'])
         
         res = self._execute_inversion(routed['inv_kwargs'], routed_params=params)
@@ -74,11 +94,11 @@ class ERTProcessor(ProjectBase):
             
         return res
     
-    def run_timelapse(self, df: pd.DataFrame, params: dict = None, date_col: str = 'date_survey') -> list:
+    def run_timelapse(self, params: dict = None, date_col: str = 'date_survey') -> list:
         routed = self._route_parameters(params)
         
         containers = build_ert_containers_timeseries(
-            df=df, 
+            df=self.df, 
             geom_df=self.elec_pos, 
             error_param=routed['error_param'], 
             date_col=date_col
@@ -96,7 +116,7 @@ class ERTProcessor(ProjectBase):
         self._save_results(all_res, params)
         return all_res
     
-    def run_ensemble(self, df: pd.DataFrame, param_grid: dict) -> list:
+    def run_ensemble(self, param_grid: dict) -> list:
         keys, values = zip(*param_grid.items())
         permutations = [dict(zip(keys, v)) for v in itertools.product(*values)]
         
@@ -105,7 +125,7 @@ class ERTProcessor(ProjectBase):
         
         for params in permutations:
             # Suppress internal save and let the aggregator handle it
-            res = self.run_single(df, params, save=False) 
+            res = self.run_single(params, save=False) 
             all_res.append(res)
             
         self._save_results(all_res, param_grid)

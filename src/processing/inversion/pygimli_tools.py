@@ -72,8 +72,10 @@ def build_ert_container(df_survey: pd.DataFrame, geom_df: pd.DataFrame,
     Converts a standardized Pandas DataFrame for a SINGLE survey into a PyGIMLi DataContainerERT.
     Dynamically applies the error model to the data['err'] array.
     """
-    geom_df = geom_df.sort_values('elec_number')
-    sensor_positions = geom_df[['X', 'Z']].values
+    n_electrodes = len(geom_df)
+    sensor_positions = np.zeros((n_electrodes, 2))
+    sensor_positions[:, 0] = geom_df['X'].values
+    sensor_positions[:, 1] = geom_df['Z'].values
     
     data = ert.createData(elecs=sensor_positions, schemeName='uk')
     
@@ -85,10 +87,10 @@ def build_ert_container(df_survey: pd.DataFrame, geom_df: pd.DataFrame,
     data['r'] = df_survey['R (Ohm)'].astype(float).values
     data['k'] = ert.createGeometricFactors(data)
 
-    if 'rhoa (Ohm.m)' in df_survey.columns and not df_survey['rhoa (Ohm.m)'].isna().all():
-        data['rhoa'] = df_survey['rhoa (Ohm.m)'].astype(float).values
-    else:
-        data['rhoa'] = data['k'] * data['r']
+    #if 'rhoa (Ohm.m)' in df_survey.columns and not df_survey['rhoa (Ohm.m)'].isna().all():
+    #    data['rhoa'] = df_survey['rhoa (Ohm.m)'].astype(float).values
+
+    data['rhoa'] = data['k'] * data['r']
         
     data['err'] = calculate_relative_error_array(data['r'].array(), error_param)
     

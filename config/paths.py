@@ -31,14 +31,12 @@ class ProjectPaths:
         
         # If project_name exists, append it. Otherwise, just use the timestamp.
         if self.project_name:
-            folder_name = f"{timestamp}_{self.project_name}"
+            folder_name = f"{self.project_name}"
+            self.ACTIVE_PROJECT_DIR = self.PROJECTS_DIR / folder_name
+            self.ACTIVE_PROJECT_DIR.mkdir(parents=True, exist_ok=True)
         else:
-            folder_name = timestamp
+            self.ACTIVE_PROJECT_DIR = self.OUTPUT_DIR
             
-        # Route everything into the PROJECTS directory under the resolved folder name
-        self.ACTIVE_PROJECT_DIR = self.PROJECTS_DIR / folder_name
-        self.ACTIVE_PROJECT_DIR.mkdir(parents=True, exist_ok=True)
-
         # ---------------------------------------------------------
         # HARDCODED RAW DATA SOURCES (READ-ONLY)
         # ---------------------------------------------------------

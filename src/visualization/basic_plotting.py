@@ -42,7 +42,6 @@ def plot_electrodes(df, ax, elec_numbers=None, **params):
                     (row["X"], row["Z"]),
                     xytext=(4, 4),
                     textcoords="offset points")
-
     return ax
 
 def plot_weather_data(weather_df, start_date, end_date, ax=None):
