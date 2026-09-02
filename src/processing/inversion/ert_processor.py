@@ -70,7 +70,7 @@ class ERTProcessor(ProjectBase):
         survey_date = getattr(self.mgr.data, 'date_survey', 'static')
         
         self.logger.info(f"Inverting step for date: {survey_date}")
-        model = self.mgr.invert(mesh=self.mesh, **inv_kwargs, verbose=True)
+        model = self.mgr.invert(mesh=self.mesh, **inv_kwargs)
         
         return {
             'time': survey_date,

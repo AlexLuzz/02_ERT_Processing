@@ -50,11 +50,12 @@ if __name__ == "__main__":
 
     plt.show()
 
-    a = False
+    a = True
     if a:
         params = {
-            #'lam': 20,
-            #'robustData': True,
+            'lam': 50,
+            'robustData': True,
+            'blockyModel': True,
             #'startModel': start_model,
             'zWeight': 0.1,
             'error_param': 5  # Pass the dictionary directly; the wrapper handles it
@@ -68,5 +69,5 @@ if __name__ == "__main__":
             filepath=pdf_path,
             results_list=results,
             elec_pos=geom,
-            mesh=mesh,
+            mesh=paraDomain,
         )

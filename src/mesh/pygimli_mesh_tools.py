@@ -170,77 +170,97 @@ def build_mono2m_mesh_new(
     x = sensors["X"].to_numpy()
     z = sensors["Z"].to_numpy()
 
-    # 2. Define coordinate layers
-    surface_pts = (
+    # Buffer scaling factors
+    bg_ext = extension * 3
+    bg_depth = depth * 3
+
+    # 2. Define Core Coordinate Points
+    c_surf_pts = (
         [[x[0] - extension, z[0]]]
         + [[xi, zi] for xi, zi in zip(x, z)]
         + [[x[-1] + extension, z[-1]]]
     )
-    interface_pts = [[pt[0], pt[1] - layer_depth] for pt in surface_pts]
-    bottom_pts = [
-        [surface_pts[-1][0], z.min() - depth],
-        [surface_pts[0][0], z.min() - depth],
+    c_inter_pts = [[pt[0], pt[1] - layer_depth] for pt in c_surf_pts]
+    c_bot_pts = [
+        [c_surf_pts[-1][0], z.min() - depth], 
+        [c_surf_pts[0][0], z.min() - depth],  
     ]
+
+    # 3. Define Outer Buffer Points
+    b_surf_left = [c_surf_pts[0][0] - bg_ext, c_surf_pts[0][1]]
+    b_surf_right = [c_surf_pts[-1][0] + bg_ext, c_surf_pts[-1][1]]
+    b_bot_right = [b_surf_right[0], z.min() - depth - bg_depth]
+    b_bot_left = [b_surf_left[0], z.min() - depth - bg_depth]
 
     plc = pg.Mesh(2)
 
-    # 3. Create Nodes
-    surf_nodes = [plc.createNode(surface_pts[0])]
+    # 4. Create Nodes (Surface, Core, and Buffer)
+    n_b_surf_l = plc.createNode(b_surf_left)
+    
+    n_c_surf = [plc.createNode(c_surf_pts[0])]
     for xi, zi in zip(x, z):
-        surf_nodes.append(plc.createNode([xi, zi], marker=99))
-    surf_nodes.append(plc.createNode(surface_pts[-1]))
+        n_c_surf.append(plc.createNode([xi, zi], marker=99))
+    n_c_surf.append(plc.createNode(c_surf_pts[-1]))
+    
+    n_b_surf_r = plc.createNode(b_surf_right)
 
-    inter_nodes = [plc.createNode(pt) for pt in interface_pts]
-    bot_right = plc.createNode(bottom_pts[0])
-    bot_left = plc.createNode(bottom_pts[1])
+    n_c_inter = [plc.createNode(pt) for pt in c_inter_pts]
+    n_c_bot_r = plc.createNode(c_bot_pts[0])
+    n_c_bot_l = plc.createNode(c_bot_pts[1])
 
-    # 4. Create Edges
-    # Surface gets -1
-    for i in range(len(surf_nodes) - 1):
-        plc.createEdge(surf_nodes[i], surf_nodes[i+1], marker=-1)
+    n_b_bot_r = plc.createNode(b_bot_right)
+    n_b_bot_l = plc.createNode(b_bot_left)
+
+    # 5. Create Edges
+    # 5a. Surface (Marker -1)
+    plc.createEdge(n_b_surf_l, n_c_surf[0], marker=-1)
+    for i in range(len(n_c_surf) - 1):
+        plc.createEdge(n_c_surf[i], n_c_surf[i+1], marker=-1)
+    plc.createEdge(n_c_surf[-1], n_b_surf_r, marker=-1)
+
+    # 5b. Outer Buffer Boundaries (Marker -2 for mixed subsurface boundaries)
+    plc.createEdge(n_b_surf_r, n_b_bot_r, marker=-2)
+    plc.createEdge(n_b_bot_r, n_b_bot_l, marker=-2)
+    plc.createEdge(n_b_bot_l, n_b_surf_l, marker=-2)
+
+    # 5c. Core Internal Edges (Marker 0 for transparent current flow)
+    for i in range(len(n_c_inter) - 1):
+        plc.createEdge(n_c_inter[i], n_c_inter[i+1], marker=0) # Interface
         
-    # Internal interface gets 0 (transparent)
-    for i in range(len(inter_nodes) - 1):
-        plc.createEdge(inter_nodes[i], inter_nodes[i+1], marker=0)
+    plc.createEdge(n_c_surf[-1], n_c_inter[-1], marker=0) # Right wall
+    plc.createEdge(n_c_inter[-1], n_c_bot_r, marker=0)
+    plc.createEdge(n_c_bot_r, n_c_bot_l, marker=0)        # Bottom wall
+    plc.createEdge(n_c_bot_l, n_c_inter[0], marker=0)     # Left wall
+    plc.createEdge(n_c_inter[0], n_c_surf[0], marker=0)
 
-    # Outer edges of the core box MUST be 0 (transparent) so current flows into the buffer
-    plc.createEdge(surf_nodes[-1], inter_nodes[-1], marker=0)
-    plc.createEdge(inter_nodes[-1], bot_right, marker=0)
-    plc.createEdge(bot_right, bot_left, marker=0)
-    plc.createEdge(bot_left, inter_nodes[0], marker=0)
-    plc.createEdge(inter_nodes[0], surf_nodes[0], marker=0)
-
-    # 5. Region Markers
-    mid_idx = len(surface_pts) // 2
-    x_mid = surface_pts[mid_idx][0]
+    # 6. Add Region Markers
+    mid_idx = len(c_surf_pts) // 2
+    x_mid = c_surf_pts[mid_idx][0]
     
-    z_mid_top = (surface_pts[mid_idx][1] + interface_pts[mid_idx][1]) / 2.0
-    plc.addRegionMarker([x_mid, z_mid_top], marker=1, area=area_top)
+    # Region 10 (Overburden)
+    z_mid_top = (c_surf_pts[mid_idx][1] + c_inter_pts[mid_idx][1]) / 2.0
+    plc.addRegionMarker([x_mid, z_mid_top], marker=10, area=area_top)
     
-    z_mid_bot = (interface_pts[mid_idx][1] + bottom_pts[0][1]) / 2.0
-    plc.addRegionMarker([x_mid, z_mid_bot], marker=2, area=area_bottom)
+    # Region 20 (Tailings)
+    z_mid_bot = (c_inter_pts[mid_idx][1] + c_bot_pts[0][1]) / 2.0
+    plc.addRegionMarker([x_mid, z_mid_bot], marker=20, area=area_bottom)
 
-    # 6. Local Refinement
+    # Region 1 (Background Buffer - Sacrificed by PyGIMLi)
+    # Safely planted in the deep left corner of the U-shaped buffer
+    plc.addRegionMarker([b_bot_left[0] + extension, b_bot_left[1] + depth], marker=1)
+
+    # 7. Safe Downward Local Refinement
     for xi, zi in zip(x, z):
         plc.createNode([xi, zi - refine_dist])
 
-    # 7. Append the Far-Field Background Buffer
-    # This creates Region 1. PyGIMLi will sacrifice this region and leave 10 and 20 alone.
-    plc = mt.appendTriangleBoundary(
-        plc, 
-        marker=0, 
-        xbound=extension * 2, 
-        ybound=depth * 2, 
-        isSubSurface=True 
-    )
-
-    # 8. Mesh generation
+    # 8. Mesh Generation
     mesh_kwargs = {
         "quality": 33,
-        "area": kwargs.pop("area", 2.0),
         "smooth": [10, 1],
         **kwargs,
     }
+    # Note: Removed the global 'area' kwarg so the buffer region 
+    # can generate massive triangles without restriction.
     
     mesh = mt.createMesh(plc, **mesh_kwargs)
 
