@@ -23,6 +23,7 @@ class InversionDataReport(ReportBase):
 
     def _unpack_results(self, results):
         """Converts results directly into clean NumPy arrays and standardized lists."""
+        # --- THE FIX: Smart Dictionary Handling ---
         if isinstance(results, dict):
             if 'model' in results:
                 # It is a single run dictionary (from run_single)
