@@ -51,7 +51,7 @@ class ProjectPaths:
         self.TLERT_MONO2M_7002 = onedrive_root / '000-Doctorat' / '13_MCM' / '03_TLERT_MONO2M_7002'
 
         # Single survey ERT projects survey folders 
-        self.MCM_SAS4000_GEO = onedrive_root / '000-Doctorat' / '13_MCM' / '04_ERT_MCM_2026E'
+        self.ERT_MCM_2026E = onedrive_root / '000-Doctorat' / '13_MCM' / '04_ERT_MCM_2026E'
 
         # Site specific electrode position files
         self.BB_ELECS_POS = self.DATA_DIR / 'ELECS_POS' / 'BB_ELECS_POS.csv'
