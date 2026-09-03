@@ -2,6 +2,7 @@ from config.paths import ProjectPaths
 from src.loaders.ert_loading_tools import load_geometry
 from src.processing.inversion.pygimli_tools import compute_error_model
 from src.mesh.pygimli_mesh_tools import *
+from src.mesh.gmesh_tools import *
 from src.processing.inversion.ert_processor import ERTProcessor
 from src.loaders.ert_loader import ERTLoader
 from src.visualization.inversion_data_report import InversionDataReport
@@ -21,16 +22,19 @@ if __name__ == "__main__":
 
     #mesh = safe_mesh_load(paths.OUTPUT_DIR / 'MCM_MONO2M.bms')
     #mesh = build_unstructured_mesh(geom, area=1, quality=34)
+    b = False
+    if b:
+        mesh, start_model_mesh = build_mono2m_meshes(
+            geom, 
+            area_top=0.3, 
+            area_bottom=2.0, 
+            quality=34,
+            add_boundary=False, 
+            extension=5.0,
+            depth=10.0,
+        )
 
-    mesh, start_model_mesh = build_mono2m_meshes(
-        geom, 
-        area_top=0.3, 
-        area_bottom=2.0, 
-        quality=34,
-        add_boundary=False, 
-        extension=5.0,
-        depth=10.0,
-    )
+    mesh = build_gmsh_mono2m(geom, size_surface=0.5, size_depth=5.0)
     
     loader = ERTLoader(site_id="MCM_MONO2M", elec_pos=geom)
     df = loader.load_prime(source=paths.DATA_DIR / "9011_BGS_2026-09-01_040052.tab")
@@ -46,7 +50,7 @@ if __name__ == "__main__":
 
     paraDomain = processor.paraDomain
 
-    start_model = build_starting_model(start_model_mesh, paraDomain, rhomap=[[10, 1000], [20, 10]])
+    #start_model = build_starting_model(start_model_mesh, paraDomain, rhomap=[[10, 1000], [20, 10]])
 
     #start_model[:200] = 1000
     #mesh_polygons = extract_polygons(paraDomain)
@@ -57,13 +61,13 @@ if __name__ == "__main__":
     a = True
     if a:
         params = {
-            'lam': 20,
+            'lam': 35,
             'robustData': False,
             'blockyModel': False,
-            'startModel': start_model,
+            #'startModel': start_model,
             'zWeight': 0.7,
             'limits': [1, 2000],
-            'error_param': 3  # Pass the dictionary directly; the wrapper handles it
+            'error_param': 5  # Pass the dictionary directly; the wrapper handles it
         }
         
         results = processor.run_single(params=params)

@@ -9,11 +9,10 @@ from pygimli.meshtools import readGmsh
 
 def build_gmsh_mesh(
     df: pd.DataFrame,
-    surface_offset: float = 0.25,
-    depth: float = 5.0,
+    depth: float = 8.0,
     extension: float = 5.0,
     size_surface: float = 0.5,
-    size_depth: float = 10.0,
+    size_depth: float = 5.0,
     params: Optional[Dict[str, Any]] = None,
     out_path: Optional[Union[str, Path]] = None,
 ):
@@ -30,7 +29,6 @@ def build_gmsh_mesh(
 
     Args:
         df: Electrode geometry DataFrame with ``elec_number``, ``X``, ``Z``.
-        surface_offset: Height above the highest electrode to build the domain.
         depth: Total depth below the lowest electrode.
         extension: Horizontal extension beyond the first and last electrodes.
         size_surface: Target triangle edge length near the electrodes. 
@@ -85,7 +83,7 @@ def build_gmsh_mesh(
 
         # Depth-dependent mesh sizing (Linear gradient from surface to depth)
         field = gmsh.model.mesh.field.add("MathEval")
-        expr = f"{size_surface} + ({size_depth} - {size_surface}) * ((z - ({z_max + surface_offset})) / (-{depth - surface_offset}))"
+        expr = f"{size_surface} + ({size_depth} - {size_surface}) * ((z - ({z_max})) / (-{depth}))"
         gmsh.model.mesh.field.setString(field, "F", expr)
         gmsh.model.mesh.field.setAsBackgroundMesh(field)
 
@@ -114,6 +112,84 @@ def build_gmsh_mesh(
                 msh_file = str(Path(tmp) / "mesh.msh")
                 gmsh.write(msh_file)
                 mesh = readGmsh(msh_file, verbose=params.get("verbose", False))
+
+    finally:
+        gmsh.finalize()
+
+    return mesh
+
+
+def build_gmsh_mono2m(
+    df: pd.DataFrame,
+    depth: float = 10.0,
+    extension: float = 10.0,
+    size_surface: float = 0.5,
+    size_depth: float = 10.0,
+    params: Optional[Dict[str, Any]] = None,
+):
+    params = params or {}
+    data = df.sort_values("X")
+    x, z = data["X"].to_numpy(), data["Z"].to_numpy()
+    x_min, x_max = x.min(), x.max()
+    bottom_z = z.min() - depth
+
+    gmsh.initialize()
+    gmsh.model.add("electrode_mesh")
+
+    try:
+        geo = gmsh.model.geo
+
+        e = [geo.addPoint(xi, zi, 0) for xi, zi in zip(x, z)]
+        tl = geo.addPoint(x_min - extension, z[0], 0)
+        tr = geo.addPoint(x_max + extension, z[-1], 0)
+        br = geo.addPoint(x_max + extension, bottom_z, 0)
+        bl = geo.addPoint(x_min - extension, bottom_z, 0)
+
+        surface = [geo.addLine(e[i], e[i + 1]) for i in range(len(e) - 1)]
+        top = [geo.addLine(tl, e[0])] + surface + [geo.addLine(e[-1], tr)]
+        outer = [
+            geo.addLine(tr, br),
+            geo.addLine(br, bl),
+            geo.addLine(bl, tl),
+        ]
+
+        loop = geo.addCurveLoop(top + outer)
+        domain = geo.addPlaneSurface([loop])
+        geo.synchronize()
+
+        gmsh.model.addPhysicalGroup(1, top, tag=1)
+        gmsh.model.addPhysicalGroup(1, outer, tag=2)
+        gmsh.model.addPhysicalGroup(2, [domain], tag=3)
+        gmsh.model.addPhysicalGroup(0, e, tag=99)
+
+        gmsh.model.mesh.field.add("Distance", 1)
+        gmsh.model.mesh.field.setNumbers(1, "CurvesList", top)
+        gmsh.model.mesh.field.setNumber(1, "Sampling", 200)
+
+        gmsh.model.mesh.field.add("Threshold", 2)
+        gmsh.model.mesh.field.setNumber(2, "InField", 1)
+        gmsh.model.mesh.field.setNumber(2, "SizeMin", size_surface)
+        gmsh.model.mesh.field.setNumber(2, "SizeMax", size_depth)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", 0.0)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", depth)
+        gmsh.model.mesh.field.setAsBackgroundMesh(2)
+
+        gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+        gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+        gmsh.option.setNumber("Mesh.MeshSizeMin", size_surface)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", size_depth)
+        gmsh.option.setNumber("Mesh.RecombineAll", 0)
+        gmsh.option.setNumber("Mesh.Algorithm", params.get("algorithm", 6))
+        gmsh.option.setNumber("Mesh.ElementOrder", params.get("element_order", 1))
+        gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
+
+        gmsh.model.mesh.generate(2)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = str(Path(tmp) / "mesh.msh")
+            gmsh.write(path)
+            mesh = readGmsh(path, verbose=params.get("verbose", False))
 
     finally:
         gmsh.finalize()
