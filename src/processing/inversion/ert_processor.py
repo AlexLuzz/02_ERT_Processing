@@ -135,7 +135,12 @@ class ERTProcessor(ProjectBase):
         """Unified flat saving logic, entirely agnostic to specific file formats."""
         structured_models = {}
         metrics_rows = []
-        
+
+        safe_params = params.copy() if params else {}
+        if 'startModel' in safe_params and hasattr(safe_params['startModel'], '__len__'):
+            u, c = np.unique(safe_params['startModel'], return_counts=True)
+            safe_params['startModel'] = "_".join([f"{count}cells_{val:g}" for count, val in zip(c, u)])
+
         for i, r in enumerate(results_list):
             # Guarantee unique dictionary keys even if 'time' is identical across ensemble runs
             step_key = f"step_{i:03d}_{r['time']}"
@@ -145,10 +150,10 @@ class ERTProcessor(ProjectBase):
             
             row = {'step': i, 'time': r['time'], 'chi2': r['chi2'], 'rms': r['rms']}
             if r['params']:
-                row.update(r['params'])
+                row.update(safe_params) # Use the summarized params for the CSV
             metrics_rows.append(row)
             
-        config = {"params": params}
+        config = {"params": safe_params}
         
         # Generic filenames using dynamically passed extensions
         self.save(
