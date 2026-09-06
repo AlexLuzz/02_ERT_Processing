@@ -8,8 +8,11 @@ from src.visualization.report_base import ReportBase
 from src.visualization.basic_plotting import extract_polygons, plot_array_on_mesh
 
 class FiltratedDataReport(ReportBase):
-    def __init__(self, filepath: str | Path, df_raw: pd.DataFrame, df_clean: pd.DataFrame, geom_df: pd.DataFrame, mesh=None, preparator=None):
+    def __init__(self, folder_path: str | Path, df_raw: pd.DataFrame, df_clean: pd.DataFrame, geom_df: pd.DataFrame, mesh=None, preparator=None):
+        # 1. Standardize the filename internally based on the provided active directory
+        filepath = Path(folder_path) / "filtrated_data_report.pdf"
         super().__init__(filepath)
+        
         self.df_raw = df_raw
         self.df_clean = df_clean
         self.geom_df = geom_df
@@ -24,8 +27,9 @@ class FiltratedDataReport(ReportBase):
         self.df_dropped = df_raw.loc[~df_raw.index.isin(df_clean.index)].copy()
 
     @classmethod
-    def print(cls, *args, **kwargs):
-        with cls(*args, **kwargs) as report:
+    def print(cls, folder_path: str | Path, *args, **kwargs):
+        # 2. Update the classmethod to mirror the new initialization parameters
+        with cls(folder_path, *args, **kwargs) as report:
             report.build()
 
     def _plot_custom_pseudo(self, ax, df, val_col, title, cmap, pmin=3, pmax=97, log_scale=True, is_abs=False):

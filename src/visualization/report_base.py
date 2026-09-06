@@ -54,7 +54,7 @@ class ReportBase(ABC):
             yield fig, gs
         finally:
             if self.pdf:
-                self.pdf.savefig(fig)
+                self.pdf.savefig(fig, bbox_inches='tight')
             plt.close(fig)
 
     @abstractmethod

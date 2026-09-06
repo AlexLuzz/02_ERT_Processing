@@ -67,7 +67,7 @@ def calculate_relative_error_array(r_meas: np.ndarray, error_param) -> np.ndarra
     raise TypeError("error_param must be None, a number, or a parameter dictionary.")
 
 def build_ert_container(df_survey: pd.DataFrame, geom_df: pd.DataFrame, 
-                        error_param: dict = None, date_str: str = "static") -> pg.DataContainerERT:
+                        error_param: dict = None) -> pg.DataContainerERT:
     """
     Converts a standardized Pandas DataFrame for a SINGLE survey into a PyGIMLi DataContainerERT.
     Dynamically applies the error model to the data['err'] array.
@@ -95,7 +95,7 @@ def build_ert_container(df_survey: pd.DataFrame, geom_df: pd.DataFrame,
     data['err'] = calculate_relative_error_array(data['r'].array(), error_param)
     
     data['valid'] = np.ones(data.size(), dtype=int)
-    data.date_survey = date_str
+    data.date_survey = df_survey['date_survey'][0]
     
     return data
 

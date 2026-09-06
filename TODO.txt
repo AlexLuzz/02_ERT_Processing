@@ -1,7 +1,6 @@
 ## 🔄 In Progress
 
     ## High Priority 🔥
-    - [ ] Visualization classes are getting out of hand
     - [ ] Implement recip error analysis to compute error func, mandatory for MCM_GEO
 
     ## Medium Priority ⚡
@@ -18,6 +17,10 @@
     - [ ] Documentation ; check obsidian and update
 
 ## ✅ Completed
+    - [x] 2026-09-04 :
+    - [x] 2026-09-03 : Mesh building func with gmsh working, sanity check with simple world kinda gives the same result, I think i was just 
+        expecting unrealistic results considering our setup (Adrien's results have the tailings below 16-20 m ...)
+    - [x] 2026-09-02 : Visualization classes are getting out of hand. Just one inversion DataReport is enough. We'll work with scripts for specifics
     - [x] 2026-09-01 : Clean tests / scripts folder, too many scripts. I deleted several scripts and started a new worflow
             -> template scripts and site-specific scripts.
     - [x] 2026-09-01 : Improve logic ERTProcessor path management, it always creates new folders it's bothersome

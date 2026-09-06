@@ -111,7 +111,7 @@ class ERTLoader(ProjectBase):
         
         return self.data
 
-    def load_prime(self, source: Path | str | list, pattern: str = "*.tab", standardize: bool = True) -> pd.DataFrame:
+    def load_prime(self, source: Path | str | list, pattern: str = "*.tab", standardize: bool = True, offset_elec: int = 0) -> pd.DataFrame:
         files = self._resolve_files(source, pattern)
         if not files:
             raise FileNotFoundError(f"No files matching '{pattern}' found in {source}")
@@ -135,6 +135,11 @@ class ERTLoader(ProjectBase):
                 'pt_meas_contact_resistance:': 'R_ab (kOhm)', 'pt_calc_res_error:': 'err_stk (%)', 
                 'pt_time:': 'date_meas'
             })
+
+            if offset_elec != 0:
+                cols = ['A', 'B', 'M', 'N']
+                df[cols] = df[cols].apply(pd.to_numeric, errors='raise') + offset_elec
+                self.logger.info(f" -> Applied electrode offset of {offset_elec} to {filepath.name}")
             
             df['hardware_id'] = 'Prime'
             df['date_survey'] = datetime.strptime(start_time_str, "%Y-%m-%dT%H:%M:%S")
