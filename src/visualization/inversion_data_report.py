@@ -82,22 +82,45 @@ class InversionDataReport(ReportBase):
         if len(self.chi2_histories) > 0:
             self._print_convergence_page()
 
-    def _get_resistivity_norm(self, cmap_name):
-        boundaries = np.geomspace(0.5, 5000, 40)
-        major_ticks = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000]
+    def _get_resistivity_norm(self, cmap_name, colors_per_interval=2):
+        # Your fixed values that will actually receive text labels
+        labeled_ticks = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000]
+        
+        boundaries = []
+        # Generate exact intermediate boundaries based on the number of colors you want
+        for i in range(len(labeled_ticks) - 1):
+            steps = np.geomspace(labeled_ticks[i], labeled_ticks[i+1], colors_per_interval + 1)
+            boundaries.extend(steps[:-1])
+            
+        boundaries.append(labeled_ticks[-1])
+        boundaries = np.array(boundaries)
 
         cmap = plt.colormaps[cmap_name].resampled(len(boundaries) - 1).copy()
         cmap.set_under("gray")
         cmap.set_over("black")
 
-        return cmap, BoundaryNorm(boundaries, cmap.N), major_ticks
+        # Return both the full array (for physical ticks) and the labeled list (for text)
+        return cmap, BoundaryNorm(boundaries, cmap.N), boundaries, labeled_ticks
 
-    def _add_unified_colorbar(self, fig, cax, collection, title_prefix, ticks=None):
+    def _add_unified_colorbar(self, fig, cax, collection, title_prefix, ticks=None, labeled_ticks=None):
+        # Pass all boundaries to 'ticks' so every color limit gets a physical tick mark
         cbar = fig.colorbar(collection, cax=cax, orientation='vertical', spacing='uniform', ticks=ticks, extend='both')
-        if ticks:
-            cbar.ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{int(x)}"))
+        
+        if labeled_ticks is not None:
+            # Only print the number if it matches a value in our labeled_ticks list
+            def format_tick(x, pos):
+                # np.isclose prevents floating point mismatch errors
+                if any(np.isclose(x, lt) for lt in labeled_ticks):
+                    return f"{x:g}" # Format 'g' elegantly handles 0.5 without truncating it to 0
+                return ""
+            
+            cbar.ax.yaxis.set_major_formatter(ticker.FuncFormatter(format_tick))
+            
         cbar.set_label(title_prefix, fontsize=10)
         cbar.ax.tick_params(labelsize=8)
+        
+        # Ensure Matplotlib doesn't auto-generate its own background ticks
+        cbar.ax.minorticks_off() 
         return cbar
 
     def _print_cover_page(self):
@@ -119,7 +142,7 @@ class InversionDataReport(ReportBase):
             ax_pd.set_title(f"Starting Model on Paradomain: {self.paradomain.cellCount()} cells", fontsize=8)
 
     def _print_grid_pages(self, data_array: np.ndarray, cmap_name: str, title_prefix: str, rows: int = 5, cols: int = 2):
-        cmap, norm, major_ticks = self._get_resistivity_norm(cmap_name)
+        cmap, norm, all_ticks, labeled_ticks = self._get_resistivity_norm(cmap_name)
 
         plots_per_page = rows * cols
         n_plots = len(data_array)
@@ -146,10 +169,11 @@ class InversionDataReport(ReportBase):
                     if r == rows - 1 or plot_idx >= len(chunk) - cols: ax.set_xlabel("X (m)", fontsize=8)
 
                 cbar_ax = fig.add_subplot(gs[1:3, -1])
-                self._add_unified_colorbar(fig, cbar_ax, collection, title_prefix, major_ticks)
+                self._add_unified_colorbar(fig, cbar_ax, collection, title_prefix, 
+                                           ticks=all_ticks, labeled_ticks=labeled_ticks)
 
     def _print_focus_layer(self, data_array: np.ndarray, cmap_name: str, title_prefix: str, rows: int = 4):
-        cmap, norm, major_ticks = self._get_resistivity_norm(cmap_name)
+        cmap, norm, all_ticks, labeled_ticks = self._get_resistivity_norm(cmap_name)
 
         for start in range(0, len(data_array), rows):
             with self.page(rows=rows, cols=4, width_ratios=[1, 0.35, 0.35, 0.05], landscape=True) as (fig, gs):
@@ -178,7 +202,7 @@ class InversionDataReport(ReportBase):
                         ax.set_xlabel("X (m)", fontsize=8)
 
                 cbar_ax = fig.add_subplot(gs[1:3, -1])
-                self._add_unified_colorbar(fig, cbar_ax, collection, title_prefix, major_ticks)
+                self._add_unified_colorbar(fig, cbar_ax, collection, title_prefix, ticks=all_ticks, labeled_ticks=labeled_ticks)
 
     def _print_convergence_page(self):
         with self.page(rows=1, cols=1, landscape=True) as (fig, gs):

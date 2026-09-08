@@ -27,7 +27,7 @@ def run_GEO():
         #'startModel': start_model,
         'zWeight': 0.7,
         'limits': [0.1, 20000],
-        'err_values': 10
+        'err_values': False
     }
     
     results = processor.run_single(params=params)

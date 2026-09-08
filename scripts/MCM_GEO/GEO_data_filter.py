@@ -17,8 +17,8 @@ def filter_GEO(plot_report: bool = False):
         })
     
     loader = ERTLoader(site_id="MCM_GEO", elec_pos=geom_geo)
-    #loader.load_sas4000(source=paths.ERT_MCM_2026E / "MCM_GEO_DD_DDrecip.AMP")
-    loader.load_sas4000(source=paths.ERT_MCM_2026E / "MCM_GEO_SC.AMP")
+    loader.load_sas4000(source=paths.ERT_MCM_2026E / "MCM_GEO_DD_DDrecip.AMP")
+    #loader.load_sas4000(source=paths.ERT_MCM_2026E / "MCM_GEO_SC.AMP")
 
     df = loader.data
 

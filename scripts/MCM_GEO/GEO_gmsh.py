@@ -172,16 +172,17 @@ def build_MCM_GEO(show: bool = False):
 
     # Call the new layered Gmsh builder
     mesh_geo = build_gmsh_layered(
-        df=geom_geo,
-        depth=20.0,
-        interface_depth=3.0, # The depth of your tailings/overburden boundary
-        extension=5.0,
-        size_surface=1.5,    # High density near electrodes
-        size_interface=3.0,  # Medium density at interface
-        size_depth=20.0       # Coarse at depth
-    )
+                df=geom_geo,
+                depth=20.0,
+                interface_depth=5.0, # The depth of your tailings/overburden boundary
+                extension=5.0,
+                size_surface=0.5,    # High density near electrodes
+                size_interface=2.0,  # Medium density at interface
+                size_depth=15.0       # Coarse at depth
+            )
 
     """
+    # High quality mesh for good inversion : 26715 cells and 13946 nodes
     mesh_geo = build_gmsh_layered(
             df=geom_geo,
             depth=30.0,
@@ -191,8 +192,22 @@ def build_MCM_GEO(show: bool = False):
             size_interface=1.0,  # Medium density at interface
             size_depth=15.0       # Coarse at depth
         )
+    
+    # Really coarse mesh for testing purposes
+    mesh_geo = build_gmsh_layered(
+            df=geom_geo,
+            depth=20.0,
+            interface_depth=3.0, # The depth of your tailings/overburden boundary
+            extension=5.0,
+            size_surface=1.5,    # High density near electrodes
+            size_interface=3.0,  # Medium density at interface
+            size_depth=20.0       # Coarse at depth
+        )
+    
     """
 
+    print(f"Mesh has {mesh_geo.cellCount()} cells and {mesh_geo.nodeCount()} nodes.")
+    
     if show:
         mesh_polygons = extract_polygons(mesh_geo)
         

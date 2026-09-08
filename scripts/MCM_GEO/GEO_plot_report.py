@@ -12,7 +12,7 @@ def run_GEO():
         })
 
     InversionDataReport.print(
-        folder_path=paths.PROJECTS_DIR / 'MCM_GEO' / '20260908_1625',
+        folder_path=paths.PROJECTS_DIR / 'MCM_GEO' / '20260908_1639',
         elec_pos=geom_geo
     )
 
