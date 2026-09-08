@@ -7,7 +7,7 @@ from src.processing.data.data_preparator import DataPreparator
 
 from datetime import datetime
 
-def filter_GEO(plot_report: bool = False):
+def filter_GEO(dd: bool = True, sc: bool = False, rec_err: float = 30, plot_report: bool = False):
     paths = ProjectPaths(user='AQ96560', project_name='MCM_GEO') 
         
     geom_geo = load_geometry(paths.MCM_GEO_ELECS_POS, params={
@@ -17,8 +17,11 @@ def filter_GEO(plot_report: bool = False):
         })
     
     loader = ERTLoader(site_id="MCM_GEO", elec_pos=geom_geo)
-    loader.load_sas4000(source=paths.ERT_MCM_2026E / "MCM_GEO_DD_DDrecip.AMP")
-    #loader.load_sas4000(source=paths.ERT_MCM_2026E / "MCM_GEO_SC.AMP")
+
+    if dd:
+        loader.load_sas4000(source=paths.ERT_MCM_2026E / "MCM_GEO_DD_DDrecip.AMP")
+    if sc:
+        loader.load_sas4000(source=paths.ERT_MCM_2026E / "MCM_GEO_SC.AMP")
 
     df = loader.data
 
@@ -30,7 +33,7 @@ def filter_GEO(plot_report: bool = False):
         "Vmn (mV)": {"min": 0.1},
         "R (Ohm)": {"min": 0.01},
         "err_stk (%)": {"max": 20.0},
-        "err_rec (%)": {"max": 60.0},
+        "err_rec (%)": {"max": rec_err},
     }
 
     df_clean = preparator.filter_standard_survey(df, thresholds)

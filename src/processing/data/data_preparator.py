@@ -78,14 +78,22 @@ class DataPreparator(ProjectBase):
                 continue
 
             mask = pd.Series(True, index=df.index)
+            criteria = []
 
             if cfg.get("min") is not None:
                 mask &= get_threshold_mask(df, param, min_val=cfg["min"])
+                criteria.append(f"min={cfg['min']}")
 
             if cfg.get("max") is not None:
                 mask &= get_threshold_mask(df, param, max_val=cfg["max"])
+                criteria.append(f"max={cfg['max']}")
 
-            self.logger.info(f" -> {param}: {(~mask).sum()} dropped.")
+            config = ", ".join(criteria) if criteria else "no thresholds"
+
+            self.logger.info(
+                f" -> {param} ({config}): {(~mask).sum()} dropped."
+            )
+
             final_mask &= mask
 
         self.clean_dfs = df[final_mask].copy()

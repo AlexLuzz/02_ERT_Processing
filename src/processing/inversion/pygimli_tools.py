@@ -46,8 +46,9 @@ def build_ert_container(df_survey: pd.DataFrame, geom_df: pd.DataFrame,
             err_col = df_survey['err_stk (%)']
         else:
             raise ValueError("err_values is False, but no error column (err_val (%), err_rec (%), or err_stk (%)) was found.")
-            
-        data['err'] = err_col.astype(float).values / 100.0
+
+        
+        data['err'] = err_col.astype(float).clip(lower=3).values / 100.0
         
     else:
         raise TypeError("err_values must be a float, an int, or False.")

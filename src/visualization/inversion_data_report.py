@@ -192,7 +192,7 @@ class InversionDataReport(ReportBase):
                     ax.set_title(time_str, fontsize=9, loc="right", color="dimgrey")
                     ax.set_ylabel("Z (m)", fontsize=8)
 
-                    for col, xlim, ylim in [(1, (20, 40), (-10, 1)), (2, (120, 140), (-14, -4))]:
+                    for col, xlim, ylim in [(1, (-50, 0), (-15, 1)), (2, (50, 100), (-20, -4))]:
                         ax_zoom = fig.add_subplot(gs[row, col])
                         ax_zoom, _ = plot_array_on_mesh(self.paradomain_polygons, array=data_array[i], ax=ax_zoom, cmap=cmap, norm=norm)
                         ax_zoom.set(xlim=xlim, ylim=ylim)
