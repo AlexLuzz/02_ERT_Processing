@@ -2,75 +2,12 @@ import pandas as pd
 import numpy as np
 import pygimli as pg
 from pygimli.physics import ert
-from scipy.optimize import curve_fit
-
-def compute_error_model(r_meas: np.ndarray, err_rec: np.ndarray, model_type: str = 'power') -> dict:
-    """
-    Computes the error model parameters from reciprocal measurements.
-    Returns a dictionary of parameters to be passed to the container builder.
-    """
-    r_abs = np.abs(r_meas)
-    err_abs = np.abs(err_rec)
-
-    if model_type == 'power':
-        # Absolute Error: \Delta R = a * (R^b)
-        def power_law(x, a, b):
-            return a * (x ** b)
-        
-        popt, _ = curve_fit(power_law, r_abs, err_abs, p0=[0.05, 1.0])
-        return {'model_type': 'power', 'a': popt[0], 'b': popt[1]}
-        
-    elif model_type == 'linear':
-        # Absolute Error: \Delta R = a * R + b
-        def linear_law(x, a, b):
-            return a * x + b
-            
-        popt, _ = curve_fit(linear_law, r_abs, err_abs, p0=[0.05, 0.001])
-        return {'model_type': 'linear', 'a': popt[0], 'b': popt[1]}
-        
-    raise ValueError(f"Unknown model_type: {model_type}")
-
-def calculate_relative_error_array(r_meas: np.ndarray, error_param) -> np.ndarray:
-    """
-    Evaluates the error_param to generate the relative error array for PyGIMLi.
-    Handles None (default), numbers (fixed), or dictionaries (computed models).
-    """
-    r_abs = np.abs(r_meas)
-    r_abs[r_abs < 1e-6] = 1e-6  # Prevent division by zero
-    
-    # Situation 1: No error specified -> Default to 0.05 (5%)
-    if error_param is None:
-        return np.full_like(r_abs, 0.05)
-        
-    # Situation 2: Fixed error specified (e.g., 3, 10, or 0.05)
-    if isinstance(error_param, (int, float)):
-        # Smart conversion: If user passes 3 (meaning 3%), convert to 0.03
-        val = error_param / 100.0 if error_param >= 1.0 else float(error_param)
-        return np.full_like(r_abs, val)
-        
-    # Situation 3: Computed model parameters (Dictionary)
-    if isinstance(error_param, dict):
-        model = error_param.get('model_type', 'fixed')
-        a = error_param.get('a', 0.05)
-        
-        if model == 'power':
-            b = error_param.get('b', 1.0)
-            abs_err = a * (r_abs ** b)
-        elif model == 'linear':
-            b = error_param.get('b', 0.001)
-            abs_err = (a * r_abs) + b
-        else:
-            return np.full_like(r_abs, a)
-            
-        return abs_err / r_abs
-        
-    raise TypeError("error_param must be None, a number, or a parameter dictionary.")
 
 def build_ert_container(df_survey: pd.DataFrame, geom_df: pd.DataFrame, 
-                        error_param: dict = None) -> pg.DataContainerERT:
+                        err_values: float | bool = 5) -> pg.DataContainerERT:
     """
     Converts a standardized Pandas DataFrame for a SINGLE survey into a PyGIMLi DataContainerERT.
-    Dynamically applies the error model to the data['err'] array.
+    Applies a fixed error float, or pulls 'err_val (%)' directly from the DataFrame if err_values is False.
     """
     n_electrodes = len(geom_df)
     sensor_positions = np.zeros((n_electrodes, 2))
@@ -87,15 +24,36 @@ def build_ert_container(df_survey: pd.DataFrame, geom_df: pd.DataFrame,
     data['r'] = df_survey['R (Ohm)'].astype(float).values
     data['k'] = ert.createGeometricFactors(data)
 
-    #if 'rhoa (Ohm.m)' in df_survey.columns and not df_survey['rhoa (Ohm.m)'].isna().all():
-    #    data['rhoa'] = df_survey['rhoa (Ohm.m)'].astype(float).values
-
-    data['rhoa'] = data['k'] * data['r']
+    if 'rhoa (Ohm.m)' in df_survey.columns and not df_survey['rhoa (Ohm.m)'].isna().all():
+        data['rhoa'] = df_survey['rhoa (Ohm.m)'].astype(float).values
+    else:
+        data['rhoa'] = data['k'] * data['r']
         
-    data['err'] = calculate_relative_error_array(data['r'].array(), error_param)
+    # --- Simplified Error Injection ---
+    if isinstance(err_values, (float, int)) and not isinstance(err_values, bool):
+        # Fixed value (e.g., 5 -> 0.05)
+        val = err_values / 100.0 if err_values >= 1.0 else float(err_values)
+        data['err'] = np.full(data.size(), val)
+        
+    elif err_values is False:
+        # Pull directly from dataframe (dividing by 100 to get relative error)
+        # Checking 'err_val (%)' first, with fallbacks to your other common naming conventions
+        if 'err_val (%)' in df_survey.columns:
+            err_col = df_survey['err_val (%)']
+        elif 'err_rec (%)' in df_survey.columns and not df_survey['err_rec (%)'].isna().all():
+            err_col = df_survey['err_rec (%)']
+        elif 'err_stk (%)' in df_survey.columns:
+            err_col = df_survey['err_stk (%)']
+        else:
+            raise ValueError("err_values is False, but no error column (err_val (%), err_rec (%), or err_stk (%)) was found.")
+            
+        data['err'] = err_col.astype(float).values / 100.0
+        
+    else:
+        raise TypeError("err_values must be a float, an int, or False.")
     
     data['valid'] = np.ones(data.size(), dtype=int)
-    data.date_survey = df_survey['date_survey'][0]
+    data.date_survey = df_survey['date_survey'].iloc[0]
     
     return data
 
@@ -120,28 +78,3 @@ def get_common_configs(df, config_cols=['A', 'B', 'M', 'N'], date_col='SurveyDat
             common_configs = common_configs.intersection(configs)
     return common_configs
 
-def fit_reciprocal_error_model(r_meas: np.ndarray, err_rec: np.ndarray, model_type: str = 'power') -> dict:
-    """
-    Fits a mathematical relationship between measured resistance and absolute reciprocal error.
-    Returns the parameter dictionary ready to be passed into the ERTProcessor.
-    """
-    r_abs = np.abs(r_meas)
-    err_abs = np.abs(err_rec)
-
-    if model_type == 'power':
-        # Absolute Error: \Delta R = a * (R^b)
-        def power_law(x, a, b):
-            return a * (x ** b)
-        
-        popt, _ = curve_fit(power_law, r_abs, err_abs, p0=[0.05, 1.0])
-        return {'model_type': 'power', 'a': popt[0], 'b': popt[1]}
-        
-    elif model_type == 'linear':
-        # Absolute Error: \Delta R = a * R + b
-        def linear_law(x, a, b):
-            return a * x + b
-            
-        popt, _ = curve_fit(linear_law, r_abs, err_abs, p0=[0.05, 0.001])
-        return {'model_type': 'linear', 'a': popt[0], 'b': popt[1]}
-        
-    raise ValueError(f"Unknown model_type: {model_type}")
