@@ -48,7 +48,9 @@ class ProjectPaths:
 
         # TL-ERT MCM MONO2M 7001 (old command file)
         self.TLERT_MONO2M_7001 = onedrive_root / '000-Doctorat' / '13_MCM' / '03_TLERT_MONO2M_7001'
-        self.TLERT_MONO2M_7002 = onedrive_root / '000-Doctorat' / '13_MCM' / '03_TLERT_MONO2M_7002'
+        self.TLERT_MONO1M_7002 = onedrive_root / '000-Doctorat' / '13_MCM' / '03_TLERT_MONO1M_7002'
+        self.TLERT_MONO2M_9011 = onedrive_root / '000-Doctorat' / '13_MCM' / '05_TLERT_MONO2M_9011'
+        self.TLERT_MONO1M_9012 = onedrive_root / '000-Doctorat' / '13_MCM' / '05_TLERT_MONO1M_9012'
 
         # Single survey ERT projects survey folders 
         self.ERT_MCM_2026E = onedrive_root / '000-Doctorat' / '13_MCM' / '04_ERT_MCM_2026E'

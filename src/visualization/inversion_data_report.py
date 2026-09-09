@@ -1,9 +1,8 @@
-from matplotlib.colors import Normalize, BoundaryNorm
+from matplotlib.colors import ListedColormap, BoundaryNorm
 from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import pygimli as pg
 import h5py
 import json
 import matplotlib.ticker as ticker
@@ -15,11 +14,11 @@ from src.mesh.pygimli_mesh_tools import safe_mesh_load
 
 class InversionDataReport(ReportBase):
     def __init__(self, folder_path: str | Path, elec_pos: pd.DataFrame, 
-                 results=None, mesh=None, paradomain=None, logs: list = None):
+                 results=None, mesh=None, paradomain=None, logs: list = None,
+                 filename: str = "_data_report.pdf"):
         
         folder_path = Path(folder_path)
-        # 1. Enforce strict, standardized static output filename
-        super().__init__(folder_path / "_data_report.pdf")
+        super().__init__(folder_path / filename)
         
         self.elec_pos = elec_pos
         self.logs = logs or []
@@ -74,17 +73,54 @@ class InversionDataReport(ReportBase):
         with cls(*args, **kwargs) as report:
             report.build()
 
+    @classmethod
+    def print_absolute(cls, folder_path, *args, **kwargs):
+        with cls(folder_path, filename="_absolute_report.pdf", *args, **kwargs) as report:
+            report.build_absolute()
+
+    @classmethod
+    def print_relative(cls, folder_path, baseline_idx=0, *args, **kwargs):
+        with cls(folder_path, filename="_relative_report.pdf", *args, **kwargs) as report:
+            report.build_relative(baseline_idx)
+
     def build(self):
         self._print_cover_page()
         if len(self.models) > 0:
-            self._print_grid_pages(self.models, cmap_name='Spectral_r', title_prefix="Resistivity (Ohm·m)")
-            self._print_focus_layer(self.models, cmap_name='Spectral_r', title_prefix="Resistivity (Ohm·m)", rows=4)
+            
+            cmap_name = 'Spectral_r'
+            title_prefix = "Resistivity (Ohm·m)"
+
+            self._print_grid_pages(self.models, cmap_name=cmap_name, title_prefix=title_prefix)
+            self._print_focus_layer(self.models, cmap_name=cmap_name, title_prefix=title_prefix, rows=4)
+            
+        if len(self.chi2_histories) > 0:
+            self._print_convergence_page()
+
+    def build_absolute(self):
+        self._print_cover_page()
+        if len(self.models) > 0:
+            self._print_grid_pages(self.models, cmap_name='Spectral_r', title_prefix="Resistivity (Ohm·m)", is_relative=False)
+            self._print_focus_layer(self.models, cmap_name='Spectral_r', title_prefix="Resistivity (Ohm·m)", rows=4, is_relative=False)
+        if len(self.chi2_histories) > 0:
+            self._print_convergence_page()
+
+    def build_relative(self, baseline_idx=0):
+        self._print_cover_page()
+        if len(self.models) > 0:
+            # Compute the mathematical variation upfront
+            baseline = self.models[baseline_idx]
+            rel_models = ((self.models - baseline) / baseline) * 100
+            
+            self._print_grid_pages(rel_models, cmap_name='RdBu_r', title_prefix="Relative Variation (%)", is_relative=True)
+            self._print_focus_layer(rel_models, cmap_name='RdBu_r', title_prefix="Relative Variation (%)", rows=4, is_relative=True)
+            
         if len(self.chi2_histories) > 0:
             self._print_convergence_page()
 
     def _get_resistivity_norm(self, cmap_name, colors_per_interval=2):
         # Your fixed values that will actually receive text labels
-        labeled_ticks = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000]
+        labeled_ticks = [#0.5, 1, 2, 
+                         5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000]
         
         boundaries = []
         # Generate exact intermediate boundaries based on the number of colors you want
@@ -99,7 +135,25 @@ class InversionDataReport(ReportBase):
         cmap.set_under("gray")
         cmap.set_over("black")
 
-        # Return both the full array (for physical ticks) and the labeled list (for text)
+        return cmap, BoundaryNorm(boundaries, cmap.N), boundaries, labeled_ticks
+
+    def _get_relative_norm(self, cmap_name='RdBu_r', vmin=-30, vmax=30, step=5):
+        """Creates a symmetric diverging colormap with a strict white center."""
+        boundaries = np.arange(vmin, vmax + step, step)
+        labeled_ticks = boundaries
+        
+        base_cmap = plt.colormaps[cmap_name].resampled(len(boundaries) - 1)
+        colors = base_cmap(np.linspace(0, 1, base_cmap.N))
+        
+        # Force the two central color bins to be pure white (RGBA)
+        mid_idx = len(colors) // 2
+        colors[mid_idx] = [1.0, 1.0, 1.0, 1.0]      # The step right of zero
+        colors[mid_idx - 1] = [1.0, 1.0, 1.0, 1.0]  # The step left of zero
+        
+        cmap = ListedColormap(colors)
+        cmap.set_under("navy")
+        cmap.set_over("darkred")
+        
         return cmap, BoundaryNorm(boundaries, cmap.N), boundaries, labeled_ticks
 
     def _add_unified_colorbar(self, fig, cax, collection, title_prefix, ticks=None, labeled_ticks=None):
@@ -136,13 +190,20 @@ class InversionDataReport(ReportBase):
             plot_array_on_mesh(self.mesh_polygons, ax=ax_mesh, edgecolor='black', alpha=0.3, linewidth=0.1)
             plot_electrodes(self.elec_pos, ax=ax_mesh, show_numbers=True, number_every=4)
             ax_mesh.set_title(f"Forward Mesh: {self.mesh.cellCount()} cells, {self.mesh.nodeCount()} nodes", fontsize=8)
+            ax_mesh.set_ylim([self.mesh.yMin(), self.mesh.yMax() + 6])
 
             ax_pd = fig.add_subplot(gs[2, 0])
             plot_array_on_mesh(self.paradomain_polygons, self.start_model, ax=ax_pd, edgecolor='black', alpha=0.3, linewidth=0.1)
             ax_pd.set_title(f"Starting Model on Paradomain: {self.paradomain.cellCount()} cells", fontsize=8)
+            ax_pd.set_ylim([self.paradomain.yMin(), self.paradomain.yMax() + 6])
 
-    def _print_grid_pages(self, data_array: np.ndarray, cmap_name: str, title_prefix: str, rows: int = 5, cols: int = 2):
-        cmap, norm, all_ticks, labeled_ticks = self._get_resistivity_norm(cmap_name)
+    def _print_grid_pages(self, data_array: np.ndarray, cmap_name: str, title_prefix: str, 
+                          rows: int = 4, cols: int = 2, is_relative: bool = False):
+        
+        if is_relative:
+            cmap, norm, all_ticks, labeled_ticks = self._get_relative_norm(cmap_name)
+        else:
+            cmap, norm, all_ticks, labeled_ticks = self._get_resistivity_norm(cmap_name)
 
         plots_per_page = rows * cols
         n_plots = len(data_array)
@@ -172,8 +233,13 @@ class InversionDataReport(ReportBase):
                 self._add_unified_colorbar(fig, cbar_ax, collection, title_prefix, 
                                            ticks=all_ticks, labeled_ticks=labeled_ticks)
 
-    def _print_focus_layer(self, data_array: np.ndarray, cmap_name: str, title_prefix: str, rows: int = 4):
-        cmap, norm, all_ticks, labeled_ticks = self._get_resistivity_norm(cmap_name)
+    def _print_focus_layer(self, data_array: np.ndarray, cmap_name: str, title_prefix: str, 
+                           rows: int = 4, is_relative: bool = False):
+        
+        if is_relative:
+            cmap, norm, all_ticks, labeled_ticks = self._get_relative_norm(cmap_name)
+        else:
+            cmap, norm, all_ticks, labeled_ticks = self._get_resistivity_norm(cmap_name)
 
         for start in range(0, len(data_array), rows):
             with self.page(rows=rows, cols=4, width_ratios=[1, 0.35, 0.35, 0.05], landscape=True) as (fig, gs):
@@ -192,7 +258,7 @@ class InversionDataReport(ReportBase):
                     ax.set_title(time_str, fontsize=9, loc="right", color="dimgrey")
                     ax.set_ylabel("Z (m)", fontsize=8)
 
-                    for col, xlim, ylim in [(1, (-50, 0), (-15, 1)), (2, (50, 100), (-20, -4))]:
+                    for col, xlim, ylim in [(1, (50, 75), (-8, 2)), (2, (150, 175), (-15, -5))]:
                         ax_zoom = fig.add_subplot(gs[row, col])
                         ax_zoom, _ = plot_array_on_mesh(self.paradomain_polygons, array=data_array[i], ax=ax_zoom, cmap=cmap, norm=norm)
                         ax_zoom.set(xlim=xlim, ylim=ylim)

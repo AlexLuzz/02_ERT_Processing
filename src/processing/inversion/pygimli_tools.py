@@ -58,12 +58,12 @@ def build_ert_container(df_survey: pd.DataFrame, geom_df: pd.DataFrame,
     
     return data
 
-def build_ert_containers_timeseries(df: pd.DataFrame, geom_df: pd.DataFrame, error_param: dict = None, date_col='date_survey') -> list:
+def build_ert_containers_timeseries(df: pd.DataFrame, geom_df: pd.DataFrame, err_values: dict = None, date_col='date_survey') -> list:
     """ Wrapper that turns a multi-survey dataframe into a list of PyGIMLi containers. """
     containers = []
     for date_survey, group in df.groupby(date_col):
         group = group.sort_values(['A', 'B', 'M', 'N'])
-        data = build_ert_container(group, geom_df, error_param=error_param, date_str=str(date_survey))
+        data = build_ert_container(group, geom_df, err_values=err_values)
         containers.append(data)
     return containers
 

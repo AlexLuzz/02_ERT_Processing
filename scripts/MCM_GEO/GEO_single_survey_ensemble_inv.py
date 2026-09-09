@@ -7,12 +7,12 @@ from GEO_gmsh import build_MCM_GEO
 from scripts.MCM_GEO.GEO_data_filter import filter_GEO
 
 
-def run_GEO(dd, sc):
+def run_GEO(dd, sc, rec_err):
     paths = ProjectPaths(user='AQ96560', project_name='MCM_GEO') 
 
     geom, mesh = build_MCM_GEO()
 
-    df_clean = filter_GEO(dd, sc, plot_report=True)
+    df_clean = filter_GEO(dd, sc, rec_err, plot_report=True)
 
     now = datetime.now().strftime("%Y%m%d_%H%M")
     folder = paths.ACTIVE_PROJECT_DIR / f"{now}"

@@ -173,11 +173,11 @@ def build_MCM_GEO(show: bool = False):
     # Call the new layered Gmsh builder
     mesh_geo = build_gmsh_layered(
                         df=geom_geo,
-                        depth=25.0,
+                        depth=30.0,
                         interface_depth=6.0, # The depth of your tailings/overburden boundary
                         extension=5.0,
-                        size_surface=0.5,    # High density near electrodes
-                        size_interface=2.0,  # Medium density at interface
+                        size_surface=0.4,    # High density near electrodes
+                        size_interface=1.5,  # Medium density at interface
                         size_depth=15.0       # Coarse at depth
                     )
 

@@ -54,11 +54,11 @@ def run_MONO1M():
     }
 
     param_grid = {
-            'lam': [5, 20, 50],
-            'robustData': [False],
+            'lam': [5, 20],
+            'robustData': [True, False],
             'blockyModel': [True, False],    
             #'startModel': start_model,
-            'zWeight': [0.3, 0.7],
+            'zWeight': [0.7],
             #'limits': [0.1, 10000],
         }
     
@@ -69,13 +69,13 @@ def run_MONO1M():
     processor.save_results(folder_path=folder, results_list=results, params=params)
     
     InversionDataReport.print(
-        folder_path=folder,
-        results_list=results,
-        elec_pos=geom,
-        mesh=mesh,
-        paradomain=paraDomain,
-        logs=processor.memory_handler.logs
-    )
-
+            folder_path=folder,
+            results=results,
+            elec_pos=geom,
+            mesh=mesh,
+            paradomain=paraDomain,
+            logs=processor.memory_handler.logs
+        )
+    
 if __name__ == "__main__":
     run_MONO1M()
