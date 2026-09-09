@@ -21,12 +21,12 @@ def run_GEO(dd, sc, rec_err):
     paraDomain = processor.paraDomain
 
     param_grid = {
-            'lam': [20, 50, 100],
-            'robustData': [False, True],
-            'blockyModel': [False, True],
-            'zWeight': [0.5, 1.0],
+            'lam': [50],
+            'robustData': [False],
+            'blockyModel': [False],
+            'zWeight': [0.1],
             'limits': [[0.1, 20000]],
-            'err_values': [False]
+            'err_values': [15]
         }
 
     
@@ -44,8 +44,8 @@ def run_GEO(dd, sc, rec_err):
     )
 
 if __name__ == "__main__":
-    run_GEO(dd=True, sc=False, rec_err=60)
-    run_GEO(dd=True, sc=False, rec_err=30)
-    run_GEO(dd=True, sc=False, rec_err=10)
-    run_GEO(dd=True, sc=True, rec_err=10)
+    #run_GEO(dd=True, sc=False, rec_err=60)
+    run_GEO(dd=False, sc=True, rec_err=30)
+    #run_GEO(dd=True, sc=False, rec_err=10)
+    #run_GEO(dd=True, sc=True, rec_err=10)
     #run_GEO(dd=False, sc=True)

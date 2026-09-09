@@ -4,7 +4,7 @@ import pygimli as pg
 from pygimli.physics import ert
 
 def build_ert_container(df_survey: pd.DataFrame, geom_df: pd.DataFrame, 
-                        err_values: float | bool = 5) -> pg.DataContainerERT:
+                        err_values: float | bool | list = 5) -> pg.DataContainerERT:
     """
     Converts a standardized Pandas DataFrame for a SINGLE survey into a PyGIMLi DataContainerERT.
     Applies a fixed error float, or pulls 'err_val (%)' directly from the DataFrame if err_values is False.
@@ -47,9 +47,11 @@ def build_ert_container(df_survey: pd.DataFrame, geom_df: pd.DataFrame,
         else:
             raise ValueError("err_values is False, but no error column (err_val (%), err_rec (%), or err_stk (%)) was found.")
 
-        
         data['err'] = err_col.astype(float).clip(lower=3).values / 100.0
-        
+    elif isinstance(err_values, list):
+        a, b, c = err_values[0], err_values[1], err_values[2]
+        data['err'] = a * data['r'] ** b + c
+
     else:
         raise TypeError("err_values must be a float, an int, or False.")
     

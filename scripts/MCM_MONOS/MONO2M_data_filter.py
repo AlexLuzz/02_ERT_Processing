@@ -3,7 +3,6 @@ from src.loaders.ert_loader import ERTLoader
 from src.loaders.ert_loading_tools import load_geometry
 from src.processing.data.data_preparator import DataPreparator
 from src.visualization.single_filtrated_report import FiltratedDataReport
-import pandas as pd
 
 if __name__ == "__main__":
     paths = ProjectPaths(user='AQ96560') 

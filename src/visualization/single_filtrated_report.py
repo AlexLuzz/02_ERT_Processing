@@ -160,7 +160,10 @@ class FiltratedDataReport(ReportBase):
 
         # Apply model across full clean dataframe
         df_clean_r = self.df_clean['R (Ohm)'].to_numpy()
+        # power model
         mod_r_full = pow_model['a'] * (df_clean_r ** pow_model['b']) + pow_model['c']
+        # linear model
+        #mod_r_full = pow_model['a'] * (df_clean_r ** pow_model['b']) + pow_model['c']
         self.df_clean['err_val (%)'] = np.abs(mod_r_full * 100)
 
     def build(self):

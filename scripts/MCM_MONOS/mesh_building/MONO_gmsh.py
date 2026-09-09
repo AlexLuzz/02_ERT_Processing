@@ -162,7 +162,7 @@ def build_gmsh_layered(
     return mesh
 
 def test_build_MCM_M2m():
-    paths = ProjectPaths(user='alexi')            
+    paths = ProjectPaths(user='AQ96560')            
     
     geom_mono2m = load_geometry(paths.MCM_MONO2M_ELECS_POS_TRUE, params={
         "absolute_pos": True, 
