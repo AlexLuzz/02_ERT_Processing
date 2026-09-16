@@ -1,13 +1,14 @@
 import pandas as pd
 from pathlib import Path
-import matplotlib.pyplot as plt
-
 from src.visualization.report_base import ReportBase
-from src.visualization.basic_plotting import format_time_axis, plot_electrodes, fetch_snow_data
+from src.visualization.basic_plotting import format_time_axis, plot_electrodes
+from src.loaders.weather_loading_tools import fetch_weather_data
 
 class RawDataReport(ReportBase):
     def __init__(self, folder_path: str | Path, df: pd.DataFrame, elec_pos: pd.DataFrame, 
-                 max_groups: int = 40, filename: str = "_raw_data_report.pdf"):
+                 max_groups: int = 300, 
+                 filename: str = "_raw_data_report.pdf",
+                 station_id: int = 30172):
         
         # 1. Enforce strict, standardized static output filename
         folder_path = Path(folder_path)
@@ -23,7 +24,7 @@ class RawDataReport(ReportBase):
         self.start, self.end = self.df['date_meas'].min(), self.df['date_meas'].max()
 
         # Fetch environmental data for the survey period
-        self.rain_df, _, self.temp_df = fetch_snow_data(self.start, self.end, include_temp=True)
+        self.weather_df = fetch_weather_data(self.start, self.end, station_id)
 
     @classmethod
     def print(cls, *args, **kwargs):
@@ -49,67 +50,72 @@ class RawDataReport(ReportBase):
             )
             ax.text(0.05, 0.95, log_text, transform=ax.transAxes, fontsize=8, family='monospace', va='top')
 
-    def _build_timeseries_pages(self, plots_per_page=3):
-        # Fallback in case columns are named differently
-        col = 'rhoa (Ohm.m)' if 'rhoa (Ohm.m)' in self.df.columns else 'rhoa'
-        
-        grouped = list(self.df.groupby(['A', 'B'], sort=False))[:self.max_groups]
-        chunks = [grouped[i:i + plots_per_page] for i in range(0, len(grouped), plots_per_page)]
+    def _build_timeseries_pages(self, plots_per_page=4):
+        col = 'rhoa (Ohm.m)'
+        grouped = list(
+            self.df.groupby(['A', 'B', 'M', 'N'], sort=False)
+        )[:self.max_groups]
 
-        # Fetch standard matplotlib cycle colors to map M-N series to geometry
-        base_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+        for i in range(0, len(grouped), plots_per_page):
+            chunk = grouped[i:i + plots_per_page]
 
-        for page_idx, chunk in enumerate(chunks):
-            # Rows: 1 for each A-B pair, plus 1 for weather. Cols: 2 (75% / 25%)
-            rows = len(chunk) + 1 
-            with self.page(rows=rows, cols=2, width_ratios=[3, 1], landscape=True) as (fig, gs):
-                
-                axes_data = []
-                for i, ((a, b), group) in enumerate(chunk):
-                    # 75% width for Timeseries, 25% for Geometry
-                    ax_ts = fig.add_subplot(gs[i, 0])
-                    ax_geom = fig.add_subplot(gs[i, 1])
-                    axes_data.append(ax_ts)
-                    
-                    # Highlight A-B injection in red
-                    geom_colors = {'tab:red': [a, b]} 
-                    
-                    # Loop over M-N receiver pairs
-                    for j, ((m, n), mn_group) in enumerate(group.groupby(['M', 'N'], sort=False)):
-                        color = base_colors[j % len(base_colors)]
-                        
-                        # Plot with lines to clearly show the timeseries evolution
-                        ax_ts.plot(mn_group['date_meas'], mn_group[col], marker='o', ls='-', 
-                                   color=color, markersize=3, lw=1, alpha=0.8, label=f"M{m}-N{n}")
-                        
-                        # Assign this exact color to the M-N geometry pair
-                        geom_colors[color] = [m, n]
-                        
-                    # Standardized Dual-Title Aesthetic
-                    ax_ts.set_title(f"Injection Pair A-B: {a}-{b}", fontsize=9, loc='left', pad=4)
-                    
-                    ax_ts.set_ylabel(r"Apparent Resistivity ($\Omega\cdot$m)", fontsize=8)
-                    ax_ts.grid(True, ls='--', alpha=0.5)
-                    ax_ts.tick_params(labelbottom=False, labelsize=8)
-                    ax_ts.legend(loc='upper left', fontsize=6, ncol=2)
+            with self.page(
+                rows=plots_per_page + 1, cols=2,
+                width_ratios=[3, 1], landscape=True
+            ) as (fig, gs):
 
-                    # Plot Geometry alongside using the injected ax parameter
-                    if self.elec_pos is not None:
-                        plot_electrodes(self.elec_pos, ax=ax_geom, colors=geom_colors)
-                        ax_geom.set_title("Configuration Geometry", fontsize=9, loc='right', color='dimgrey')
+                # Add a single shared Y-axis label in the middle of the page height
+                # Adjust the x-coordinate (0.04) if it overlaps with your left margin
+                fig.text(0.01, 0.5, "Apparent resistivity ($\Omega\cdot$m)", va='center', rotation='vertical', fontsize=10)
+
+                for j, ((a, b, m, n), g) in enumerate(chunk):
+                    ax = fig.add_subplot(gs[j, 0])
+                    ax_geom = fig.add_subplot(gs[j, 1])
+
+                    # --- Timeseries ---
+                    ax.plot(g['date_survey'], g[col], 'o-', color='tab:blue',
+                            ms=3, lw=1, alpha=.7)
+
+                    r = g[g['reciprocal'] == True]
+                    ax.scatter(r['date_survey'], r[col], color='red', s=20, zorder=3)
+
+                    ax.grid(True, ls='--', alpha=.5)
+                    
+                    # Force X-axis limits to match the global dataset timeframe
+                    ax.set_xlim(self.start, self.end)
+                    
+                    # Hide the X-axis tick labels for the resistivity plots
+                    ax.tick_params(labelbottom=False) 
+
+                    # --- Geometry ---
+                    plot_electrodes(self.elec_pos, ax=ax_geom)
+                    plot_electrodes(self.elec_pos.iloc[[a - 1, b - 1]],
+                                    ax=ax_geom, color='red')
+                    plot_electrodes(self.elec_pos.iloc[[m - 1, n - 1]],
+                                    ax=ax_geom, color='blue')
+                    
+                    # Add electrode configuration text rectangle
+                    config_text = f"A-B-M-N : {a}-{b}-{m}-{n}"
+                    ax_geom.text(0.3, 0.15, config_text, 
+                                 transform=ax_geom.transAxes, 
+                                 ha='center', va='top', fontsize=9,
+                                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.9, edgecolor='dimgrey'))
 
                 # --- WEATHER (Bottom Row, spans 1st column ONLY) ---
-                ax_weather = fig.add_subplot(gs[-1, 0], sharex=axes_data[-1] if axes_data else None)
+                ax_weather = fig.add_subplot(gs[-1, 0])
                 
-                if self.rain_df is not None and not self.rain_df.empty:
-                    ax_weather.bar(self.rain_df['date'], self.rain_df['rain'], color='tab:blue', alpha=0.4, label='Rain')
+                if not self.weather_df['rain'].empty:
+                    ax_weather.bar(self.weather_df['date'], self.weather_df['rain'], color='tab:blue', alpha=0.4, label='Rain')
                     ax_weather.set_ylabel('Rain (mm)', fontsize=8, color='tab:blue')
                     
-                if self.temp_df is not None and not self.temp_df.empty:
+                if not self.weather_df['temp'].empty:
                     ax_temp = ax_weather.twinx()
-                    ax_temp.plot(self.temp_df['date'], self.temp_df['temp'], color='tab:red', alpha=0.7)
+                    ax_temp.plot(self.weather_df['date'], self.weather_df['temp'], color='tab:red', alpha=0.7)
                     ax_temp.set_ylabel('Temp (°C)', fontsize=8, color='tab:red')
                 
                 ax_weather.grid(True, ls='--', alpha=0.3)
                 ax_weather.tick_params(labelsize=8)
+                
+                # Apply the same x-limits to the weather plot to guarantee alignment with resistivity plots
+                ax_weather.set_xlim(self.start, self.end)
                 format_time_axis(ax_weather)

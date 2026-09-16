@@ -142,48 +142,64 @@ def get_reciprocal_mask(df: pd.DataFrame) -> pd.Series:
 
 def get_reciprocal_mask_vectorized(df: pd.DataFrame) -> pd.Series:
     """
-    Fast vectorized version of get_reciprocal_mask().
+    Identify reciprocal ERT measurements based on alternating occurrences
+    of a configuration and its reciprocal.
 
-    Identifies reciprocal ERT measurements based on acquisition order.
-    The dataframe must be in acquisition order.
+    For each configuration pair ABMN <-> MNAB:
 
-    Exact repeats are NOT marked as reciprocal.
+        ABMN  -> forward
+        MNAB  -> reciprocal
+        ABMN  -> forward
+        MNAB  -> reciprocal
+        ...
+
+    The reciprocal does not need to immediately follow the forward.
+    Unrelated configurations do not affect the state.
+
+    Exact repeats of ABMN are treated as forward occurrences.
     """
     if df.empty:
         raise ValueError("DataFrame is empty in get_reciprocal_mask_vectorized")
 
-    # Put the electrodes within each dipole in a consistent order.
+    # Normalize electrode ordering within each dipole.
     ab = np.sort(df[["A", "B"]].to_numpy(), axis=1)
     mn = np.sort(df[["M", "N"]].to_numpy(), axis=1)
 
-    # Configuration as measured: AB -> MN
-    forward_keys = pd.MultiIndex.from_arrays([
+    # Configuration as measured: ABMN
+    keys = list(zip(
         ab[:, 0],
         ab[:, 1],
         mn[:, 0],
         mn[:, 1],
-    ])
+    ))
 
-    # Reciprocal configuration: MN -> AB
-    reciprocal_keys = pd.MultiIndex.from_arrays([
+    # Reciprocal configuration: MNAB
+    reciprocal_keys = list(zip(
         mn[:, 0],
         mn[:, 1],
         ab[:, 0],
         ab[:, 1],
-    ])
+    ))
 
-    # Find the first row where each configuration was measured.
-    first_seen = (
-        pd.Series(np.arange(len(df)), index=forward_keys)
-        .groupby(level=[0, 1, 2, 3], sort=False)
-        .min()
-    )
+    mask = np.zeros(len(df), dtype=bool)
 
-    # For each measurement, find the first occurrence of its reciprocal.
-    reciprocal_first_seen = first_seen.reindex(reciprocal_keys)
+    # Number of times each configuration has appeared.
+    counts = {}
 
-    # It is reciprocal only if that configuration occurred earlier.
-    mask = reciprocal_first_seen.to_numpy() < np.arange(len(df))
+    for i, (key, reciprocal_key) in enumerate(zip(keys, reciprocal_keys)):
+
+        # Number of previous occurrences of this exact configuration
+        n = counts.get(key, 0)
+
+        # Number of previous occurrences of its reciprocal
+        reciprocal_n = counts.get(reciprocal_key, 0)
+
+        # If the reciprocal has occurred more times than this
+        # configuration, this occurrence is reciprocal.
+        if reciprocal_n > n:
+            mask[i] = True
+
+        counts[key] = n + 1
 
     return pd.Series(mask, index=df.index)
 
