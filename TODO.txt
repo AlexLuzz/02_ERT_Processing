@@ -1,10 +1,9 @@
 ## 🔄 In Progress
 
     ## High Priority 🔥
-    - [ ] Implement recip error analysis to compute error func, mandatory for MCM_GEO
+    - [ ] 
 
     ## Medium Priority ⚡
-    - [ ] Make fetch_weather_data zork for MCM
     - [ ] raw_data_report : First page is useless
     - [ ] update the tests they're outdated
     
@@ -17,7 +16,9 @@
     - [ ] Documentation ; check obsidian and update
 
 ## ✅ Completed
-    - [x] 2026-09-04 :
+    - [x] 2026-09-16 : Find meteo station for MCM, Val d'Or city and airport, added some helpful plotting func
+    - [x] 2026-09-16 : Find meteo station for MCM, Val d'Or city and airport, added some helpful func to find stations numbers in scripts
+    - [x] 2026-09-04 : Implement recip error analysis to compute error func, mandatory for MCM_GEO
     - [x] 2026-09-03 : Mesh building func with gmsh working, sanity check with simple world kinda gives the same result, I think i was just 
         expecting unrealistic results considering our setup (Adrien's results have the tailings below 16-20 m ...)
     - [x] 2026-09-02 : Visualization classes are getting out of hand. Just one inversion DataReport is enough. We'll work with scripts for specifics
@@ -32,8 +33,6 @@
     - [x] 2026-08-27 : Identify recip and measurement type for filtering / plotting purpose, funcs are in 
     loading_tools and implemented in the finalize_standardization step
     - [x] 2026-08-27 : Improved logic concerning load_geometry through the ERTLoader
-    - [x] 2026-08-27 : Find meteo station for MCM, Val d'Or city and airport 
-    48.125754 and -78.119571 (https://climate.weather.gc.ca/historical_data/search_historic_data_stations_e.html)
     - [x] 2026-08-26 : Create mesh building (pygimli and Gmsh), testing and visualizing scripts 
     - [x] 2026-08-26 : When importing elec_pos i should be able to specify projection X/Y, maybe through a dict ? 
     - [x] 2026-08-26 : Bring back temperature and rain / snow plotting as it was done in article, 

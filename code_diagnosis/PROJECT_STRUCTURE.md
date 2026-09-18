@@ -1,4 +1,4 @@
-# Project Tree: 02_ERT_Processing
+# Project Tree: 02_Geophy_Processing
 
 ```text
 ├── .vscode
@@ -11,9 +11,31 @@
 ├── config
 │   └── paths.py
 ├── scripts
-│   ├── ERT
-│   │   └── run_123.py
-│   └── TL-ERT
+│   ├── ERT_useful
+│   │   ├── clean_vec_pycache.py
+│   │   ├── prime_survey_building.py
+│   │   └── prime_survey_building_V2.py
+│   ├── MCM_GEO
+│   │   ├── GEO_data_filter.py
+│   │   ├── GEO_gmsh.py
+│   │   ├── GEO_plot_report.py
+│   │   ├── GEO_single_survey_ensemble_inv.py
+│   │   └── GEO_single_survey_inv.py
+│   ├── MCM_MONOS
+│   │   ├── mesh_building
+│   │   │   └── MONO_gmsh.py
+│   │   ├── MONO1M_single_survey_inv.py
+│   │   ├── MONO1M_timelapse_inv.py
+│   │   ├── MONO2M_data_filter.py
+│   │   ├── MONO2M_single_inv_flat_topo.py
+│   │   ├── MONO2M_single_survey_inv.py
+│   │   ├── MONO2M_timelapse_inv.py
+│   │   ├── MONOS_rawData_TLERT_report.py
+│   │   ├── plot_report.py
+│   │   └── run_both.py
+│   └── Weather
+│       ├── find_station.py
+│       └── plot_weather.py
 ├── src
 │   ├── core
 │   │   ├── __init__.py
@@ -41,9 +63,9 @@
 │   ├── visualization
 │   │   ├── basic_plotting.py
 │   │   ├── inversion_data_report.py
-│   │   ├── raw_tlert_report.py
+│   │   ├── raw_data_report.py
 │   │   ├── report_base.py
-│   │   └── single_ert_report.py
+│   │   └── single_filtrated_report.py
 │   └── __init__.py
 ├── tests
 │   ├── loaders
@@ -57,23 +79,14 @@
 │   ├── mesh
 │   │   ├── test_gmsh.py
 │   │   └── test_pygimli_mesh.py
-│   ├── processing
-│   │   ├── data
-│   │   │   └── test_prepared_data_report_BB.py
-│   │   └── inversion
-│   │       └── test_inversion_MONO2M.py
 │   ├── visualization
-│   │   ├── test_inversion_report_MONO2M.py
-│   │   ├── test_plot_elec_geometry.py
-│   │   ├── test_raw_data_report_BB.py
-│   │   └── test_raw_data_report_MONO2M.py
+│   │   └── test_plot_elec_geometry.py
 │   └── test.py
 ├── .env
 ├── ARCHITECTURE_AUDIT.md
 ├── JOURNAL.txt
 ├── main.py
 ├── PROJECT_ARCHITECTURE.md
-├── PROJECT_DEEP_ARCHITECTURE.md
 ├── README.md
 └── TODO.txt
 ```

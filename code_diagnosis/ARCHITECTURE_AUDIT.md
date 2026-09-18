@@ -1,6 +1,6 @@
-# Complete Architecture & Quality Audit: `02_ERT_Processing`
+# Complete Architecture & Quality Audit: `02_Geophy_Processing`
 
-**Target Directory:** `C:\Users\alexi\OneDrive - ETS\01_Coding\02_ERT_Processing`
+**Target Directory:** `C:\Users\AQ96560\OneDrive - ETS\01_Coding\02_Geophy_Processing`
 
 ## 1. Directory Tree & Module Signatures
 
@@ -39,9 +39,8 @@
 ### `config\paths.py`
 
 **Classes:**
-- `class ProjectPaths` (2 methods) — *Centralized, READ-ONLY path management for raw ERT data.*
+- `class ProjectPaths` (1 methods) — *Centralized, READ-ONLY path management for raw ERT data.*
   - `def __init__(self, user, project_name)`
-  - `def __repr__(self)`
 
 ---
 
@@ -52,10 +51,190 @@
 
 ---
 
-### `scripts\ERT\run_123.py`
+### `scripts\ERT_useful\clean_vec_pycache.py`
+
+**Functions:**
+- `def cleanup(root)`
+
+---
+
+### `scripts\ERT_useful\prime_survey_building.py`
+
+**Dependencies:**
+- *Third-party:* `config, matplotlib, numpy, pandas, pygimli, src`
+
+**Functions:**
+- `def plot_pseudo_doi(dataContainer, array_type)` — *Plots the pseudo-section points for ERT data.*
+
+---
+
+### `scripts\ERT_useful\prime_survey_building_V2.py`
+
+**Dependencies:**
+- *Third-party:* `config, matplotlib, numpy, pandas, pygimli, src`
+
+**Functions:**
+- `def plot_pseudo_doi(dataContainer, array_type)` — *Plots the pseudo-section points for ERT data.*
+
+---
+
+### `scripts\MCM_GEO\GEO_data_filter.py`
 
 **Dependencies:**
 - *Third-party:* `config, src`
+
+**Functions:**
+- `def filter_GEO(dd, sc, rec_err, plot_report)`
+
+---
+
+### `scripts\MCM_GEO\GEO_gmsh.py`
+
+**Dependencies:**
+- *Third-party:* `config, gmsh, matplotlib, numpy, pandas, pygimli, src`
+
+**Functions:**
+- `def build_gmsh_layered(df, depth, interface_depth, extension, size_surface, size_interface, size_depth, params)` — *Builds a 2D ERT mesh with a distinct structural interface (e.g., overburden vs tailings)*
+- `def build_MCM_GEO(show)`
+
+---
+
+### `scripts\MCM_GEO\GEO_plot_report.py`
+
+**Dependencies:**
+- *Third-party:* `config, src`
+
+**Functions:**
+- `def run_GEO()`
+
+---
+
+### `scripts\MCM_GEO\GEO_single_survey_ensemble_inv.py`
+
+**Dependencies:**
+- *Third-party:* `GEO_gmsh, config, scripts, src`
+
+**Functions:**
+- `def run_GEO(dd, sc, rec_err)`
+
+---
+
+### `scripts\MCM_GEO\GEO_single_survey_inv.py`
+
+**Dependencies:**
+- *Third-party:* `GEO_gmsh, config, scripts, src`
+
+**Functions:**
+- `def run_GEO()`
+
+---
+
+### `scripts\MCM_MONOS\mesh_building\MONO_gmsh.py`
+
+**Dependencies:**
+- *Third-party:* `config, gmsh, matplotlib, numpy, pandas, pygimli, src`
+
+**Functions:**
+- `def build_gmsh_layered(df, depth, interface_depth, extension, size_surface, size_interface, size_depth, params)` — *Builds a 2D ERT mesh with a distinct structural interface (e.g., overburden vs tailings)*
+- `def test_build_MCM_M2m()`
+
+---
+
+### `scripts\MCM_MONOS\MONO1M_single_survey_inv.py`
+
+**Dependencies:**
+- *Third-party:* `config, scripts, src`
+
+**Functions:**
+- `def run_MONO1M()`
+
+---
+
+### `scripts\MCM_MONOS\MONO1M_timelapse_inv.py`
+
+**Dependencies:**
+- *Third-party:* `config, scripts, src`
+
+**Functions:**
+- `def run_TL_MONO1M()`
+
+---
+
+### `scripts\MCM_MONOS\MONO2M_data_filter.py`
+
+**Dependencies:**
+- *Third-party:* `config, src`
+
+---
+
+### `scripts\MCM_MONOS\MONO2M_single_inv_flat_topo.py`
+
+**Dependencies:**
+- *Third-party:* `config, matplotlib, numpy, src`
+
+---
+
+### `scripts\MCM_MONOS\MONO2M_single_survey_inv.py`
+
+**Dependencies:**
+- *Third-party:* `config, scripts, src`
+
+**Functions:**
+- `def run_MONO2M()`
+
+---
+
+### `scripts\MCM_MONOS\MONO2M_timelapse_inv.py`
+
+**Dependencies:**
+- *Third-party:* `config, scripts, src`
+
+**Functions:**
+- `def run_TL_MONO2M()`
+
+---
+
+### `scripts\MCM_MONOS\MONOS_rawData_TLERT_report.py`
+
+**Dependencies:**
+- *Third-party:* `config, pandas, src`
+
+**Functions:**
+- `def process_ert_site(site_id, geom_path, source_paths, offset_elec)` — *Helper function to load geometry, parse PRIME data, and export the raw data report.*
+
+---
+
+### `scripts\MCM_MONOS\plot_report.py`
+
+**Dependencies:**
+- *Third-party:* `config, src`
+
+**Functions:**
+- `def run_plot_mono1m()`
+
+---
+
+### `scripts\MCM_MONOS\run_both.py`
+
+**Dependencies:**
+- *Third-party:* `MONO1M_single_survey_inv, MONO1M_timelapse_inv, MONO2M_single_survey_inv, MONO2M_timelapse_inv`
+
+---
+
+### `scripts\Weather\find_station.py`
+
+**Dependencies:**
+- *Third-party:* `requests`
+
+**Functions:**
+- `def get_stations_dict(province, search_term)`
+
+---
+
+### `scripts\Weather\plot_weather.py`
+
+**Dependencies:**
+- *Third-party:* `matplotlib, pandas, src`
 
 ---
 
@@ -73,10 +252,15 @@
 - *Third-party:* `h5py, numpy, pandas, src`
 
 **Classes:**
-- `class ProjectBase` (6 methods) — *Abstract base class providing logging, standardized saving/loading, *
+- `class MemoryHandler` (2 methods)
   - `def __init__(self)`
-  - `def _setup_logging(self)`
+  - `def emit(self, record)`
+- `class ProjectBase` (8 methods)
+  - `def __init__(self, memory)`
+  - `def _setup_logging(self, memory)`
   - `def load(self, file_path)`
+  - `def load_results(self, folder_path)`
+  - `def _prepare_h5_value(self, key, val)`
   - `def save(self, data, file_path, metadata)`
   - `def save_mesh(self, mesh, file_path)`
   - `def load_mesh(self, file_path)`
@@ -97,7 +281,7 @@
   - `def __init__(self, site_id, elec_pos)`
   - `def _resolve_files(self, source, pattern)`
   - `def finalize_standardization(self)`
-  - `def load_prime(self, source, pattern, standardize)`
+  - `def load_prime(self, source, pattern, standardize, offset_elec)`
   - `def load_sas4000(self, source, pattern, standardize)`
   - `def load_ohmpi(self, source, pattern, standardize)`
 
@@ -114,7 +298,7 @@
 - `def pygimli_compute_geometric_factors(df, df_elec_pos)` — *Compute geometric factors using PyGIMLi.*
 - `def compute_geometric_factors(df, df_elec_pos)` — *Compute geometric factors using 3D Euclidean distances.*
 - `def get_reciprocal_mask(df)` — *Identify reciprocal ERT measurements by following acquisition order.*
-- `def get_reciprocal_mask_vectorized(df)` — *Fast vectorized version of get_reciprocal_mask().*
+- `def get_reciprocal_mask_vectorized(df)` — *Identify reciprocal ERT measurements based on alternating occurrences*
 - `def process_reciprocals(df)` — *Flips reciprocal dipoles to match forward configurations, isolates true *
 - `def load_geometry(filepath, params)` — *Load and process electrode geometry.*
 
@@ -126,7 +310,7 @@
 - *Third-party:* `pandas, requests`
 
 **Functions:**
-- `def fetch_weather_data(start_date, end_date, freq, station_id)` — *Fetches daily weather data from Environment Canada and resamples to desired frequency.*
+- `def fetch_weather_data(start_date, end_date, station_id, freq)` — *Fetches daily weather data from Environment Canada and resamples to desired frequency.*
 
 ---
 
@@ -140,20 +324,24 @@
 - *Third-party:* `gmsh, pandas, pygimli`
 
 **Functions:**
-- `def build_gmsh_mesh(df, surface_offset, depth, extension, size_surface, size_depth, params, out_path)` — *Build an unstructured X-Z mesh using Gmsh tailored for PyGIMLi.*
+- `def build_gmsh_mesh(df, depth, extension, size_surface, size_depth, params, out_path)` — *Build an unstructured X-Z mesh using Gmsh tailored for PyGIMLi.*
+- `def build_gmsh_mono2m(df, depth, extension, size_surface, size_depth, params)`
 
 ---
 
 ### `src\mesh\pygimli_mesh_tools.py`
 
 **Dependencies:**
-- *Third-party:* `numpy, pygimli`
+- *Third-party:* `numpy, pygimli, scipy`
 
 **Functions:**
 - `def build_grid_mesh(x_min, x_max, y_min, y_max, dx, dy)` — *Creates a structured quadrilateral grid.*
 - `def build_unstructured_mesh(df, surface_offset, depth, extension, refine_dist)` — *Create an unstructured triangular mesh from electrode positions with *
 - `def safe_mesh_save(mesh, target_path)` — *Saves a PyGIMLi mesh by bypassing Windows/C++ long path and accent limits.*
 - `def safe_mesh_load(source_path)` — *Loads a PyGIMLi mesh bypassing Windows/C++ encoding and path limits.*
+- `def build_mono2m_plc(df, layer_depth, depth, extension, markers, area_top, area_bottom, curved_bottom)` — *Helper: Builds the core layered polygons and fuses them with explicit area constraints.*
+- `def build_mono2m_meshes(df, layer_depth, depth, extension, area_top, area_bottom, quality, add_boundary, bound_ext, bound_depth, start_markers)` — *Builds both the inversion mesh and the starting model mesh simultaneously *
+- `def build_starting_model(mesh, para_domain, rhomap, default_res)` — *Maps resistivity values from a fine start mesh to the para_domain using a rhomap.*
 
 ---
 
@@ -171,9 +359,11 @@
 - *Third-party:* `pandas, src`
 
 **Classes:**
-- `class DataPreparator` (2 methods)
+- `class DataPreparator` (4 methods)
   - `def __init__(self)`
   - `def filter_mono2m_custom(self, df, min_v, max_err)`
+  - `def filter_standard_survey(self, df, thresholds)`
+  - `def print_logs(self)`
 
 **Functions:**
 - `def log_filtration(func)` — *Decorator to automatically log dropped measurements and top affected A-B pairs.*
@@ -217,13 +407,17 @@
 - *Third-party:* `numpy, pandas, pygimli, src`
 
 **Classes:**
-- `class ERTProcessor` (6 methods) — *Runner class for ERT inversions with ensemble support, detailed iteration tracking,*
-  - `def __init__(self, folder_path, mesh, electrode_positions, simulation_name)`
+- `class ERTProcessor` (10 methods)
+  - `def __init__(self, mesh, electrode_positions, df)`
   - `def _log_init_stats(self)`
-  - `def set_errors(self, df, error_val)`
-  - `def run_inversion(self, df, inv_params, inversion_type, save_all_iterations)`
-  - `def _update_registry(self, run_id, start_time, inv_type, params, res, total_iters, filename)`
-  - `def run_ensemble(self, df, param_grid, inversion_type, save_all_iterations)`
+  - `def _route_parameters(self, params)`
+  - `def _compute_paraDomain(self)`
+  - `def _setup_manager(self, data, mgr_kwargs)`
+  - `def _execute_inversion(self, inv_kwargs, routed_params)`
+  - `def run_single(self, params)`
+  - `def run_timelapse(self, params)`
+  - `def run_ensemble(self, param_grid)`
+  - `def save_results(self, folder_path, results_list, params)`
 
 ---
 
@@ -233,8 +427,8 @@
 - *Third-party:* `numpy, pandas, pygimli`
 
 **Functions:**
-- `def build_ert_container(df_survey, geom_df, default_error)` — *Converts a standardized Pandas DataFrame for a SINGLE survey into a PyGIMLi DataContainerERT.*
-- `def build_ert_containers_timeseries(df, geom_df, date_col)` — *Wrapper that turns a multi-survey dataframe into a list of PyGIMLi containers. *
+- `def build_ert_container(df_survey, geom_df, err_values)` — *Converts a standardized Pandas DataFrame for a SINGLE survey into a PyGIMLi DataContainerERT.*
+- `def build_ert_containers_timeseries(df, geom_df, err_values, date_col)` — *Wrapper that turns a multi-survey dataframe into a list of PyGIMLi containers. *
 - `def get_common_configs(df, config_cols, date_col)` — *Identifies electrode configurations that exist across ALL surveys.*
 
 ---
@@ -256,28 +450,38 @@
 ### `src\visualization\inversion_data_report.py`
 
 **Dependencies:**
-- *Third-party:* `matplotlib, numpy, pandas, src`
+- *Third-party:* `h5py, matplotlib, numpy, pandas, src`
 
 **Classes:**
-- `class InversionDataReport` (4 methods)
-  - `def __init__(self, mesh, times, models, filepath, elec_pos)`
+- `class InversionDataReport` (14 methods)
+  - `def __init__(self, folder_path, elec_pos, results, mesh, paradomain, logs, filename)`
   - `def print(cls)`
+  - `def print_absolute(cls, folder_path)`
+  - `def print_relative(cls, folder_path, baseline_idx)`
   - `def build(self)`
-  - `def print_result_array_pages(self, times, models_array, title_prefix, rows, cols, landscape, cmap, norm, cbar_label)`
+  - `def build_absolute(self)`
+  - `def build_relative(self, baseline_idx)`
+  - `def _get_resistivity_norm(self, cmap_name, colors_per_interval)`
+  - `def _get_relative_norm(self, cmap_name, vmin, vmax, step)`
+  - `def _add_unified_colorbar(self, fig, cax, collection, title_prefix, ticks, labeled_ticks)`
+  - `def _print_cover_page(self)`
+  - `def _print_grid_pages(self, data_array, cmap_name, title_prefix, rows, cols, is_relative)`
+  - `def _print_focus_layer(self, data_array, cmap_name, title_prefix, rows, is_relative)`
+  - `def _print_convergence_page(self)`
 
 ---
 
-### `src\visualization\raw_tlert_report.py`
+### `src\visualization\raw_data_report.py`
 
 **Dependencies:**
-- *Third-party:* `matplotlib, numpy, pandas, src`
+- *Third-party:* `pandas, src`
 
 **Classes:**
-- `class RawTLERTReport` (5 methods)
-  - `def __init__(self, df, df_elec, df_weather, filepath, max_groups, plot_every_nth_group)`
+- `class RawDataReport` (5 methods)
+  - `def __init__(self, folder_path, df, elec_pos, max_groups, filename, station_id)`
   - `def print(cls)`
   - `def build(self)`
-  - `def _page_survey_data_metrics(self)`
+  - `def _print_cover_page(self)`
   - `def _build_timeseries_pages(self, plots_per_page)`
 
 ---
@@ -297,19 +501,19 @@
 
 ---
 
-### `src\visualization\single_ert_report.py`
+### `src\visualization\single_filtrated_report.py`
 
 **Dependencies:**
-- *Third-party:* `matplotlib, numpy, pandas, pygimli, src`
+- *Third-party:* `matplotlib, numpy, pandas, scipy, src`
 
 **Classes:**
-- `class SingleSurveyERTReport` (6 methods)
-  - `def __init__(self, filepath, df, mgr, params, run_id)`
-  - `def print(cls)`
+- `class FiltratedDataReport` (6 methods)
+  - `def __init__(self, folder_path, df_raw, df_clean, geom_df, mesh, preparator)`
+  - `def print(cls, folder_path)`
+  - `def compute_error_model(r_meas, err_rec, model_type)`
+  - `def _plot_custom_pseudo(self, ax, df, val_col, title, cmap, pmin, pmax, log_scale, is_abs, custom_norm)`
+  - `def _print_reciprocal_analysis_page(self)`
   - `def build(self)`
-  - `def _build_page_1_data(self)`
-  - `def _build_page_2_inversion(self)`
-  - `def _build_page_3_coverage(self)`
 
 ---
 
@@ -395,7 +599,7 @@
 ### `tests\mesh\test_pygimli_mesh.py`
 
 **Dependencies:**
-- *Third-party:* `config, matplotlib, src`
+- *Third-party:* `config, matplotlib, pygimli, src`
 
 **Functions:**
 - `def test_build_grid_mesh()`
@@ -405,31 +609,10 @@
 
 ---
 
-### `tests\processing\data\test_prepared_data_report_BB.py`
-
-**Dependencies:**
-- *Third-party:* `config, src`
-
----
-
-### `tests\processing\inversion\test_inversion_MONO2M.py`
-
-**Dependencies:**
-- *Third-party:* `config, numpy, pandas, src`
-
----
-
 ### `tests\test.py`
 
 **Dependencies:**
-- *Third-party:* `matplotlib`
-
----
-
-### `tests\visualization\test_inversion_report_MONO2M.py`
-
-**Dependencies:**
-- *Third-party:* `config, src`
+- *Third-party:* `numpy`
 
 ---
 
@@ -440,20 +623,6 @@
 
 **Functions:**
 - `def test_loading(source, file_path, load_function)` — *Test loading a single file using a specific loader function.*
-
----
-
-### `tests\visualization\test_raw_data_report_BB.py`
-
-**Dependencies:**
-- *Third-party:* `config, src`
-
----
-
-### `tests\visualization\test_raw_data_report_MONO2M.py`
-
-**Dependencies:**
-- *Third-party:* `config, src`
 
 ---
 
@@ -475,48 +644,92 @@ code_diagnosis\generate_enhanced_architecture.py
 code_diagnosis\generate_tree.py
     F 3:0 save_tree_to_file - A (2)
 config\paths.py
-    C 4:0 ProjectPaths - A (3)
+    C 4:0 ProjectPaths - A (4)
     M 7:4 ProjectPaths.__init__ - A (3)
-    M 52:4 ProjectPaths.__repr__ - A (1)
+scripts\ERT_useful\clean_vec_pycache.py
+    F 8:0 cleanup - B (7)
+scripts\ERT_useful\prime_survey_building.py
+    F 8:0 plot_pseudo_doi - A (4)
+scripts\ERT_useful\prime_survey_building_V2.py
+    F 8:0 plot_pseudo_doi - A (4)
+scripts\MCM_GEO\GEO_data_filter.py
+    F 10:0 filter_GEO - A (4)
+scripts\MCM_GEO\GEO_gmsh.py
+    F 18:0 build_gmsh_layered - B (7)
+    F 164:0 build_MCM_GEO - A (3)
+scripts\MCM_GEO\GEO_plot_report.py
+    F 5:0 run_GEO - A (1)
+scripts\MCM_GEO\GEO_single_survey_ensemble_inv.py
+    F 10:0 run_GEO - A (1)
+scripts\MCM_GEO\GEO_single_survey_inv.py
+    F 10:0 run_GEO - A (1)
+scripts\MCM_MONOS\MONO1M_single_survey_inv.py
+    F 12:0 run_MONO1M - A (1)
+scripts\MCM_MONOS\MONO1M_timelapse_inv.py
+    F 12:0 run_TL_MONO1M - A (1)
+scripts\MCM_MONOS\MONO2M_single_survey_inv.py
+    F 13:0 run_MONO2M - A (1)
+scripts\MCM_MONOS\MONO2M_timelapse_inv.py
+    F 12:0 run_TL_MONO2M - A (1)
+scripts\MCM_MONOS\MONOS_rawData_TLERT_report.py
+    F 9:0 process_ert_site - A (5)
+scripts\MCM_MONOS\plot_report.py
+    F 5:0 run_plot_mono1m - A (1)
+scripts\MCM_MONOS\mesh_building\MONO_gmsh.py
+    F 18:0 build_gmsh_layered - B (7)
+    F 164:0 test_build_MCM_M2m - A (2)
+scripts\Weather\find_station.py
+    F 3:0 get_stations_dict - B (9)
 src\core\base.py
-    M 72:4 ProjectBase.save - C (15)
-    M 31:4 ProjectBase.load - C (13)
-    C 12:0 ProjectBase - B (6)
-    M 20:4 ProjectBase._setup_logging - A (2)
-    M 17:4 ProjectBase.__init__ - A (1)
-    M 117:4 ProjectBase.save_mesh - A (1)
-    M 129:4 ProjectBase.load_mesh - A (1)
+    M 92:4 ProjectBase.save - C (15)
+    M 41:4 ProjectBase.load - C (13)
+    M 86:4 ProjectBase._prepare_h5_value - B (8)
+    C 20:0 ProjectBase - B (6)
+    C 12:0 MemoryHandler - A (2)
+    M 26:4 ProjectBase._setup_logging - A (2)
+    M 13:4 MemoryHandler.__init__ - A (1)
+    M 17:4 MemoryHandler.emit - A (1)
+    M 21:4 ProjectBase.__init__ - A (1)
+    M 71:4 ProjectBase.load_results - A (1)
+    M 130:4 ProjectBase.save_mesh - A (1)
+    M 136:4 ProjectBase.load_mesh - A (1)
 src\loaders\ert_loader.py
     C 9:0 ERTLoader - B (7)
-    M 41:4 ERTLoader._resolve_files - B (7)
-    M 52:4 ERTLoader.finalize_standardization - B (7)
-    M 143:4 ERTLoader.load_sas4000 - B (7)
-    M 105:4 ERTLoader.load_prime - B (6)
-    M 188:4 ERTLoader.load_ohmpi - B (6)
+    M 50:4 ERTLoader._resolve_files - B (7)
+    M 61:4 ERTLoader.finalize_standardization - B (7)
+    M 114:4 ERTLoader.load_prime - B (7)
+    M 157:4 ERTLoader.load_sas4000 - B (7)
+    M 202:4 ERTLoader.load_ohmpi - B (6)
     M 12:4 ERTLoader.__init__ - A (3)
 src\loaders\ert_loading_tools.py
     F 6:0 scan_header - B (10)
-    F 243:0 load_geometry - B (8)
+    F 259:0 load_geometry - B (8)
     F 89:0 get_reciprocal_mask - A (4)
-    F 190:0 process_reciprocals - A (3)
+    F 143:0 get_reciprocal_mask_vectorized - A (4)
+    F 206:0 process_reciprocals - A (3)
     F 39:0 split_sas4000_surveys - A (2)
     F 58:0 pygimli_compute_geometric_factors - A (2)
     F 72:0 compute_geometric_factors - A (2)
-    F 143:0 get_reciprocal_mask_vectorized - A (2)
 src\loaders\weather_loading_tools.py
     F 5:0 fetch_weather_data - A (3)
 src\mesh\gmesh_tools.py
     F 10:0 build_gmsh_mesh - A (4)
+    F 122:0 build_gmsh_mono2m - A (4)
 src\mesh\pygimli_mesh_tools.py
-    F 14:0 build_unstructured_mesh - A (5)
+    F 113:0 build_mono2m_plc - C (12)
+    F 15:0 build_unstructured_mesh - A (5)
+    F 215:0 build_starting_model - A (5)
     F 93:0 safe_mesh_load - A (2)
-    F 8:0 build_grid_mesh - A (1)
+    F 186:0 build_mono2m_meshes - A (2)
+    F 9:0 build_grid_mesh - A (1)
     F 71:0 safe_mesh_save - A (1)
 src\processing\data\data_preparator.py
-    C 39:0 DataPreparator - A (2)
-    F 9:0 log_filtration - A (1)
-    M 40:4 DataPreparator.__init__ - A (1)
-    M 44:4 DataPreparator.filter_mono2m_custom - A (1)
+    M 49:4 DataPreparator.filter_standard_survey - B (7)
+    C 35:0 DataPreparator - A (4)
+    M 103:4 DataPreparator.print_logs - A (3)
+    F 8:0 log_filtration - A (1)
+    M 36:4 DataPreparator.__init__ - A (1)
+    M 43:4 DataPreparator.filter_mono2m_custom - A (1)
 src\processing\data\data_tools.py
     F 32:0 interpolate_excluded_period - A (5)
     F 4:0 resample_timeseries - A (4)
@@ -529,36 +742,50 @@ src\processing\data\filtration_tools.py
     F 41:0 get_hampel_mask - A (1)
     F 57:0 get_discontinued_configs_mask - A (1)
 src\processing\inversion\ert_processor.py
-    M 60:4 ERTProcessor.run_inversion - B (10)
-    C 9:0 ERTProcessor - A (5)
-    M 140:4 ERTProcessor._update_registry - A (5)
-    M 42:4 ERTProcessor.set_errors - A (3)
-    M 172:4 ERTProcessor.run_ensemble - A (3)
-    M 14:4 ERTProcessor.__init__ - A (1)
-    M 30:4 ERTProcessor._log_init_stats - A (1)
+    M 100:4 ERTProcessor.save_results - C (14)
+    M 23:4 ERTProcessor._route_parameters - B (6)
+    C 11:0 ERTProcessor - A (4)
+    M 87:4 ERTProcessor.run_ensemble - A (3)
+    M 77:4 ERTProcessor.run_timelapse - A (2)
+    M 12:4 ERTProcessor.__init__ - A (1)
+    M 20:4 ERTProcessor._log_init_stats - A (1)
+    M 47:4 ERTProcessor._compute_paraDomain - A (1)
+    M 52:4 ERTProcessor._setup_manager - A (1)
+    M 55:4 ERTProcessor._execute_inversion - A (1)
+    M 71:4 ERTProcessor.run_single - A (1)
 src\processing\inversion\pygimli_tools.py
-    F 6:0 build_ert_container - A (5)
-    F 48:0 get_common_configs - A (3)
-    F 38:0 build_ert_containers_timeseries - A (2)
+    F 6:0 build_ert_container - C (12)
+    F 72:0 get_common_configs - A (3)
+    F 63:0 build_ert_containers_timeseries - A (2)
 src\visualization\basic_plotting.py
     F 21:0 plot_electrodes - A (5)
-    F 48:0 plot_weather_data - A (4)
-    F 96:0 extract_polygons - A (3)
-    F 105:0 plot_array_on_mesh - A (3)
+    F 47:0 plot_weather_data - A (4)
+    F 95:0 extract_polygons - A (3)
+    F 104:0 plot_array_on_mesh - A (3)
     F 8:0 format_time_axis - A (2)
 src\visualization\inversion_data_report.py
-    M 67:4 InversionDataReport.print_result_array_pages - B (7)
-    C 9:0 InversionDataReport - A (4)
-    M 30:4 InversionDataReport.build - A (4)
-    M 10:4 InversionDataReport.__init__ - A (1)
-    M 26:4 InversionDataReport.print - A (1)
-src\visualization\raw_tlert_report.py
-    M 42:4 RawTLERTReport._build_timeseries_pages - B (10)
-    C 9:0 RawTLERTReport - A (4)
-    M 10:4 RawTLERTReport.__init__ - A (1)
-    M 27:4 RawTLERTReport.print - A (1)
-    M 31:4 RawTLERTReport.build - A (1)
-    M 35:4 RawTLERTReport._page_survey_data_metrics - A (1)
+    M 16:4 InversionDataReport.__init__ - C (17)
+    M 200:4 InversionDataReport._print_grid_pages - C (11)
+    M 236:4 InversionDataReport._print_focus_layer - B (8)
+    M 273:4 InversionDataReport._print_convergence_page - B (6)
+    C 15:0 InversionDataReport - A (5)
+    M 86:4 InversionDataReport.build - A (3)
+    M 99:4 InversionDataReport.build_absolute - A (3)
+    M 107:4 InversionDataReport.build_relative - A (3)
+    M 120:4 InversionDataReport._get_resistivity_norm - A (2)
+    M 159:4 InversionDataReport._add_unified_colorbar - A (2)
+    M 180:4 InversionDataReport._print_cover_page - A (2)
+    M 72:4 InversionDataReport.print - A (1)
+    M 77:4 InversionDataReport.print_absolute - A (1)
+    M 82:4 InversionDataReport.print_relative - A (1)
+    M 140:4 InversionDataReport._get_relative_norm - A (1)
+src\visualization\raw_data_report.py
+    M 53:4 RawDataReport._build_timeseries_pages - A (5)
+    C 7:0 RawDataReport - A (3)
+    M 8:4 RawDataReport.__init__ - A (1)
+    M 30:4 RawDataReport.print - A (1)
+    M 34:4 RawDataReport.build - A (1)
+    M 38:4 RawDataReport._print_cover_page - A (1)
 src\visualization\report_base.py
     C 9:0 ReportBase - A (3)
     M 19:4 ReportBase.__exit__ - A (3)
@@ -566,14 +793,14 @@ src\visualization\report_base.py
     M 10:4 ReportBase.__init__ - A (1)
     M 15:4 ReportBase.__enter__ - A (1)
     M 61:4 ReportBase.build - A (1)
-src\visualization\single_ert_report.py
-    M 40:4 SingleSurveyERTReport._build_page_1_data - B (7)
-    C 11:0 SingleSurveyERTReport - A (3)
-    M 73:4 SingleSurveyERTReport._build_page_2_inversion - A (2)
-    M 12:4 SingleSurveyERTReport.__init__ - A (1)
-    M 31:4 SingleSurveyERTReport.print - A (1)
-    M 35:4 SingleSurveyERTReport.build - A (1)
-    M 106:4 SingleSurveyERTReport._build_page_3_coverage - A (1)
+src\visualization\single_filtrated_report.py
+    M 169:4 FiltratedDataReport.build - C (19)
+    M 49:4 FiltratedDataReport._plot_custom_pseudo - B (8)
+    C 9:0 FiltratedDataReport - B (7)
+    M 88:4 FiltratedDataReport._print_reciprocal_analysis_page - A (4)
+    M 10:4 FiltratedDataReport.__init__ - A (3)
+    M 31:4 FiltratedDataReport.compute_error_model - A (3)
+    M 25:4 FiltratedDataReport.print - A (1)
 tests\loaders\test_elecs_projection.py
     F 6:0 run_geometry_tests - A (4)
 tests\loaders\test_ert_loader.py
@@ -591,15 +818,15 @@ tests\mesh\test_gmsh.py
     F 8:0 test_build_MCM_GEO_gmsh - A (1)
     F 25:0 test_build_MCM_M2m_gmsh - A (1)
 tests\mesh\test_pygimli_mesh.py
-    F 7:0 test_build_grid_mesh - A (1)
-    F 12:0 test_build_unstructured_mesh - A (1)
-    F 19:0 test_build_MCM_GEO - A (1)
-    F 33:0 test_build_MCM_M2m - A (1)
+    F 8:0 test_build_grid_mesh - A (1)
+    F 13:0 test_build_unstructured_mesh - A (1)
+    F 20:0 test_build_MCM_GEO - A (1)
+    F 38:0 test_build_MCM_M2m - A (1)
 tests\visualization\test_plot_elec_geometry.py
     F 6:0 test_loading - A (1)
 
-105 blocks (classes, functions, methods) analyzed.
-Average complexity: A (3.8095238095238093)
+147 blocks (classes, functions, methods) analyzed.
+Average complexity: A (4.061224489795919)
 ```
 
 ---
@@ -607,35 +834,38 @@ Average complexity: A (3.8095238095238093)
 ## 3. Potential Dead Code & Unused Items (Vulture)
 
 ```text
-config\paths.py:42: unused attribute 'MCM_MONO1M_ELECS_POS' (60% confidence)
-src\core\base.py:117: unused method 'save_mesh' (60% confidence)
-src\core\base.py:129: unused method 'load_mesh' (60% confidence)
+config\paths.py:30: unused variable 'timestamp' (60% confidence)
+config\paths.py:45: unused attribute 'TLERT_BB_SAS4000' (60% confidence)
+config\paths.py:46: unused attribute 'TLERT_BB_OHMPI' (60% confidence)
+config\paths.py:47: unused attribute 'TLERT_MCM_PRIME' (60% confidence)
+config\paths.py:61: unused attribute 'MCM_MONO1M_ELECS_POS' (60% confidence)
+scripts\MCM_GEO\GEO_gmsh.py:217: unused variable 'coll' (60% confidence)
+scripts\MCM_MONOS\mesh_building\MONO_gmsh.py:191: unused variable 'coll' (60% confidence)
+scripts\Weather\find_station.py:65: unused variable 'my_stations' (60% confidence)
+src\core\base.py:71: unused method 'load_results' (60% confidence)
 src\loaders\ert_loading_tools.py:58: unused function 'pygimli_compute_geometric_factors' (60% confidence)
 src\loaders\ert_loading_tools.py:89: unused function 'get_reciprocal_mask' (60% confidence)
-src\processing\data\data_preparator.py:39: unused class 'DataPreparator' (60% confidence)
-src\processing\data\data_preparator.py:43: unused method 'filter_mono2m_custom' (60% confidence)
+src\mesh\pygimli_mesh_tools.py:215: unused function 'build_starting_model' (60% confidence)
+src\processing\data\data_preparator.py:42: unused method 'filter_mono2m_custom' (60% confidence)
+src\processing\data\data_preparator.py:103: unused method 'print_logs' (60% confidence)
 src\processing\data\data_tools.py:4: unused function 'resample_timeseries' (60% confidence)
 src\processing\data\data_tools.py:32: unused function 'interpolate_excluded_period' (60% confidence)
 src\processing\data\data_tools.py:66: unused function 'filter_common_measurements' (60% confidence)
-src\processing\data\filtration_tools.py:19: unused function 'get_threshold_mask' (60% confidence)
+src\processing\data\filtration_tools.py:4: unused function 'get_date_range_mask' (60% confidence)
 src\processing\data\filtration_tools.py:24: unused function 'get_excluded_elecs_mask' (60% confidence)
 src\processing\data\filtration_tools.py:33: unused function 'get_excluded_configs_mask' (60% confidence)
 src\processing\data\filtration_tools.py:41: unused function 'get_hampel_mask' (60% confidence)
 src\processing\data\filtration_tools.py:57: unused function 'get_discontinued_configs_mask' (60% confidence)
-src\processing\inversion\ert_processor.py:42: unused method 'set_errors' (60% confidence)
-src\processing\inversion\ert_processor.py:172: unused method 'run_ensemble' (60% confidence)
-src\processing\inversion\pygimli_tools.py:48: unused function 'get_common_configs' (60% confidence)
-src\visualization\basic_plotting.py:8: unused function 'format_time_axis' (60% confidence)
-src\visualization\raw_tlert_report.py:7: unused import 'format_time_axis' (90% confidence)
-src\visualization\raw_tlert_report.py:59: unused variable 'page_idx' (60% confidence)
+src\processing\inversion\pygimli_tools.py:72: unused function 'get_common_configs' (60% confidence)
+src\visualization\basic_plotting.py:145: unused variable 'ymin' (60% confidence)
+src\visualization\report_base.py:2: unused import 'matplotlib' (90% confidence)
 src\visualization\report_base.py:19: unused variable 'exc_tb' (100% confidence)
-src\visualization\single_ert_report.py:11: unused class 'SingleSurveyERTReport' (60% confidence)
 tests\loaders\test_std_save_reload.py:17: unused variable 'df_reloaded' (60% confidence)
 tests\mesh\test_gmsh.py:20: unused variable 'coll' (60% confidence)
 tests\mesh\test_gmsh.py:46: unused variable 'coll' (60% confidence)
-tests\mesh\test_pygimli_mesh.py:10: unused variable 'coll' (60% confidence)
-tests\mesh\test_pygimli_mesh.py:17: unused variable 'coll' (60% confidence)
-tests\mesh\test_pygimli_mesh.py:28: unused variable 'coll' (60% confidence)
-tests\mesh\test_pygimli_mesh.py:42: unused variable 'coll' (60% confidence)
-tests\processing\data\test_prepared_data_report_BB.py:2: unused import 'DataPreparator' (90% confidence)
+tests\mesh\test_pygimli_mesh.py:11: unused variable 'coll' (60% confidence)
+tests\mesh\test_pygimli_mesh.py:18: unused variable 'coll' (60% confidence)
+tests\mesh\test_pygimli_mesh.py:29: unused variable 'coll' (60% confidence)
+tests\mesh\test_pygimli_mesh.py:46: unused variable 'coll' (60% confidence)
+tests\mesh\test_pygimli_mesh.py:52: unused variable 'cb' (60% confidence)
 ```

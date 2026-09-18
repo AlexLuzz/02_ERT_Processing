@@ -15,7 +15,7 @@ class ProjectPaths:
         # Hardcoded base directory
         self.base_dir = (onedrive_root 
             / 'Géophysique appliquée - GTO365 - 02 - Alexis Luzy'
-            / '02_ERT_Processing'
+            / '02_Geophy_Processing'
         )
 
         # The Main Folders
@@ -62,3 +62,6 @@ class ProjectPaths:
         self.MCM_MONO2M_ELECS_POS_TRUE = self.DATA_DIR / 'ELECS_POS' / 'MCM_MONO2M_ELECS_POS_TRUE.csv'
         self.MCM_MONO1M_ELECS_POS_TRUE = self.DATA_DIR / 'ELECS_POS' / 'MCM_MONO1M_ELECS_POS_TRUE.csv'
         self.MCM_GEO_ELECS_POS = self.DATA_DIR / 'ELECS_POS' / 'MCM_GEO_ELECS_POS.csv'
+
+        # DAS dataset
+        self.DAS_OUELLET_2024 = self.DATA_DIR / 'DAS' 

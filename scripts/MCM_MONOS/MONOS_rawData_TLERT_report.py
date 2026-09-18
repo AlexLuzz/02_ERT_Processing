@@ -59,7 +59,7 @@ def process_ert_site(site_id, geom_path, source_paths, offset_elec=None):
             folder_path=report_path,
             df=df,
             elec_pos=geom,
-            #max_groups=10
+            max_groups=10
             )
 
 if __name__ == "__main__":
