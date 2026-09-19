@@ -96,40 +96,25 @@ class DASLoader(ProjectBase):
 
         return metadata
 
-    def plot_waterfall(self, data_var: str, ax=None, time_slice=None, distance_slice=None, cmap="RdBu_r", robust=True):
-        """
-        Extracts a 2D slice of the data and plots a standard waterfall (Time vs Distance).
-        
-        Args:
-            data_var: The name of the variable in the .nc file (e.g., 'strain', 'strain_rate', 'data').
-            time_slice: A standard python slice to restrict time (e.g., slice(0, 1000)).
-            distance_slice: A standard python slice to restrict channels/distance (e.g., slice(200, 500)).
-            robust: If True, automatically drops massive outlier spikes so the colormap is readable.
-        """
-        if self.dataset is None:
-            raise ValueError("No data loaded. Call load_nc() first.")
+    def plot_waterfall(self, data_var, ax=None, time_slice=None, distance_slice=None,
+                   cmap="RdBu_r", robust=True):
         if data_var not in self.dataset.data_vars:
-            raise KeyError(f"Variable '{data_var}' not found. Available: {list(self.dataset.data_vars.keys())}")
+            raise KeyError(f"Variable '{data_var}' not found. Available: {list(self.dataset.data_vars)}")
 
-        # Note: You may need to change 'time' and 'distance' to match the exact dimension names in your .nc file
-        ds_plot = self.dataset[data_var]
-        
-        if time_slice:
-            # .isel() slices by index. If you want to slice by physical time/meters, use .sel()
-            ds_plot = ds_plot.isel(time=time_slice) 
-        if distance_slice:
-            ds_plot = ds_plot.isel(distance=distance_slice) 
+        data = self.dataset[data_var]
 
-        self.logger.info("Computing requested slice into RAM for plotting...")
-        
-        # .compute() forces Dask to actually load the requested slice into memory
-        plot_array = ds_plot.compute()
+        if time_slice is not None:
+            data = data.isel(time=time_slice)
+        if distance_slice is not None:
+            data = data.isel(channels=distance_slice)
+
+        data = data.compute()
 
         if ax is None:
-            fig, ax = plt.subplots(figsize=(12, 6))
-            
-        # xarray integrates directly with matplotlib
-        plot_array.plot(ax=ax, cmap=cmap, robust=robust)
-        ax.set_title(f"DAS Waterfall Plot | {self.site_id}", fontsize=12, fontweight='bold')
-        
+            _, ax = plt.subplots(figsize=(12, 6))
+
+        data.plot(ax=ax, cmap=cmap, robust=robust)
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Channel")
+
         return ax

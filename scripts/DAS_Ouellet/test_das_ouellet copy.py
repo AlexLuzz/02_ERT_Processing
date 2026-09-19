@@ -7,14 +7,19 @@ if __name__ == "__main__":
     
     loader = DASLoader(site_id="MCM_DAS_01")
     
-    ds = loader.load_nc(source= paths.onedrive_root / "s1.nc")
+    data = loader.load_nc(source= paths.onedrive_root / "s1.nc")
     
     fig, ax = plt.subplots(figsize=(12, 6))
-    loader.plot_waterfall(
-        data_var='__xarray_dataarray_variable__', # Replace with your variable name
-        #time_slice=slice(0, 2000), 
-        #distance_slice=slice(100, 500), 
-        #ax=ax
-    )
+
+    data = data['__xarray_dataarray_variable__']
+
+    #data = data.isel(time=slice(0, 2000))
+    #data = data.isel(channels=slice(0, 2000))
+
+    data = data.compute()
+
+    data.plot(ax=ax, cmap="RdBu_r", robust=True)
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Channel")
     
     plt.show()
